@@ -308,7 +308,7 @@ body {
   background: linear-gradient(180deg, var(--panel), var(--bg-2));
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
-  padding: 26px 24px;
+  padding: 26px 16px;
 }
 .card.hidden { display: none; }
 .card h2 { margin: 0 0 10px; font-size: 1.4rem; }
@@ -391,23 +391,25 @@ body {
 /* ---------- mode selector ---------- */
 .mode-selector {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 .mode-btn {
-  flex: 1;
-  max-width: 180px;
+  flex: 0 1 auto;
+  width: 140px;
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--panel-line);
   border-radius: 8px;
-  padding: 10px 16px;
+  padding: 8px 12px;
   font-family: inherit;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 .mode-btn:hover {
   color: var(--ink);
