@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CutSite &mdash; a CRISPR reflex game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+/* ============================================================
+   CutSite  -  styles
+   Palette (a fluorescence-imaging look):
+     --bg      deep imaging-screen navy
+     --panel   raised panel
+     --glow     bioluminescent cyan  (the fluorescing target)
+     --cas9     amber                (the scissors / Cas9)
+   DNA bases use a genomics-style coloring:
+     A green, T red, G amber, C blue
+   ============================================================ */
+
+:root {
+  --bg: #070d1a;
+  --bg-2: #0b1424;
+  --panel: #0f1a30;
+  --panel-line: #1c2c4a;
+  --ink: #e8eef7;
+  --muted: #8598b6;
+  --glow: #2ee6c8;
+  --glow-soft: rgba(46, 230, 200, 0.28);
+  --cas9: #ffb24d;
+  --danger: #ff6b6b;
+  --base-a: #46d17f;
+  --base-t: #ff6f6f;
+  --base-g: #f5b73d;
+  --base-c: #4aa3ff;
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(900px 500px at 50% -10%, #12213d 0%, transparent 60%),
+    radial-gradient(700px 500px at 90% 110%, #0d1830 0%, transparent 55%),
+    var(--bg);
+  color: var(--ink);
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  display: flex;
+  justify-content: center;
+  padding: 28px 18px 40px;
+}
+
+/* ---------- custom scissors cursor ---------- */
+.scissors {
+  position: fixed;
+  top: 0; left: 0;
+  color: var(--cas9);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 60;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.6));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.scissors.active { opacity: 1; }
+.scissors .blade { transform-origin: 6px 16px; transition: transform 90ms ease; }
+.scissors.snip .blade-top    { transform: rotate(11deg); }
+.scissors.snip .blade-bottom { transform: rotate(-11deg); }
+
+/* ---------- layout ---------- */
+.app {
+  width: 100%;
+  max-width: 860px;
+}
+
+.topbar { margin-bottom: 20px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: var(--cas9);
+  border: 1px solid var(--cas9);
+  padding: 4px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+.brand h1 {
+  margin: 0;
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.tagline { margin: 8px 2px 0; color: var(--muted); font-size: 0.98rem; }
+
+/* ---------- HUD ---------- */
+.hud {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.stat {
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  border: 1px solid var(--panel-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.stat-label {
+  display: block;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+.stat-value {
+  display: block;
+  margin-top: 4px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+#time.low { color: var(--danger); }
+.stat-value.bump { animation: bump 0.28s ease; }
+@keyframes bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.22); color: var(--glow); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- stage ---------- */
+.stage {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(20,34,60,0.6), rgba(9,16,30,0.6));
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius);
+  padding: 30px 22px 34px;
+  min-height: 260px;
+  overflow: hidden;
+}
+.stage::before {
+  /* faint imaging-grid texture */
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 26px 26px;
+  pointer-events: none;
+}
+.status {
+  position: relative;
+  text-align: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 26px;
+  min-height: 1.2em;
+}
+.status.hot { color: var(--glow); }
+
+/* ---------- DNA helix ---------- */
+.helix { position: relative; padding: 20px 0; }
+.backbone {
+  position: absolute;
+  left: 0; right: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(51,80,127,0), #33507f, rgba(51,80,127,0));
+}
+.backbone-top { top: 12px; }
+.backbone-bottom { bottom: 12px; }
+
+.strand {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  padding: 0 4px;
+  cursor: none;
+}
+.col {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 0;
+  border-radius: 8px;
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+.base {
+  width: 100%;
+  max-width: 26px;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #06101f;
+  opacity: 0.9;
+}
+.rung {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 22px;
+  transform: translateY(-50%);
+  background: rgba(120,150,190,0.35);
+}
+.base-A { background: var(--base-a); }
+.base-T { background: var(--base-t); }
+.base-G { background: var(--base-g); }
+.base-C { background: var(--base-c); }
+
+/* active target: the fluorescing window */
+.col.in-target {
+  background: var(--glow-soft);
+  animation: fluoresce 0.9s ease-in-out infinite;
+}
+.col.in-target .base { opacity: 1; box-shadow: 0 0 12px 2px var(--glow-soft); }
+@keyframes fluoresce {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(46,230,200,0); }
+  50% { box-shadow: 0 0 18px 3px var(--glow-soft); }
+}
+
+/* PAM tag under the last two target bases */
+.col.pam::after {
+  content: "PAM";
+  position: absolute;
+  bottom: -16px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+  color: var(--cas9);
+  white-space: nowrap;
+}
+
+/* the moment of the cut */
+.col.cut {
+  animation: cutflash 0.4s ease forwards;
+}
+@keyframes cutflash {
+  0% { background: #ffffff; transform: scale(1.15); }
+  100% { background: transparent; transform: scale(1); }
+}
+
+/* floating +points text */
+.pop {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--glow);
+  pointer-events: none;
+  animation: rise 0.7s ease forwards;
+  z-index: 40;
+}
+@keyframes rise {
+  0% { opacity: 0; transform: translate(-50%, 6px); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -30px); }
+}
+
+/* ---------- overlay ---------- */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(6, 12, 24, 0.72);
+  backdrop-filter: blur(3px);
+  z-index: 50;
+}
+.overlay.hidden { display: none; }
+.card {
+  width: min(440px, 92%);
+  text-align: center;
+  background: linear-gradient(180deg, var(--panel), var(--bg-2));
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius);
+  padding: 26px 24px;
+}
+.card.hidden { display: none; }
+.card h2 { margin: 0 0 10px; font-size: 1.4rem; }
+.card p { color: var(--muted); font-size: 0.95rem; line-height: 1.55; margin: 0 0 20px; }
+.card b { color: var(--glow); font-weight: 700; }
+
+.btn {
+  display: inline-block;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #06101f;
+  background: var(--glow);
+  border: none;
+  border-radius: 10px;
+  padding: 12px 22px;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.btn:hover { filter: brightness(1.08); box-shadow: 0 0 22px var(--glow-soft); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 3px solid var(--cas9); outline-offset: 2px; }
+.btn-ghost {
+  margin-top: 12px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--panel-line);
+  font-size: 0.82rem;
+  padding: 8px 16px;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+.btn-ghost:hover { box-shadow: none; color: var(--ink); }
+
+.scoreline {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  margin: 8px 0 18px;
+}
+.scoreline-num {
+  display: block;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 1.8rem;
+  color: var(--glow);
+}
+.scoreline-lbl {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.end-note { min-height: 1.2em; }
+
+/* ---------- footer ---------- */
+.foot {
+  margin-top: 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 560px) {
+  .hud { grid-template-columns: repeat(2, 1fr); }
+  .brand h1 { font-size: 1.55rem; }
+  .col { gap: 10px; }
+  .base { font-size: 0.68rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .col.in-target { animation: none; }
+  .col.in-target .base { box-shadow: 0 0 14px 3px var(--glow-soft); }
+  .pop { animation-duration: 0.01s; }
+}
+
+</style>
+</head>
+<body>
+  <!-- Scissors cursor that follows the pointer over the play area -->
+  <div class="scissors" id="scissors" aria-hidden="true">
+    <svg viewBox="0 0 32 32" width="34" height="34">
+      <g class="blade blade-top">
+        <circle cx="6" cy="7" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/>
+        <line x1="8.6" y1="9" x2="27" y2="16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      </g>
+      <g class="blade blade-bottom">
+        <circle cx="6" cy="25" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/>
+        <line x1="8.6" y1="23" x2="27" y2="16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      </g>
+      <circle cx="16" cy="16" r="1.6" fill="currentColor"/>
+    </svg>
+  </div>
+
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">Cas9</span>
+        <h1>CutSite</h1>
+      </div>
+      <p class="tagline">Find the fluorescing target. Snip it before the window closes.</p>
+    </header>
+
+    <section class="hud" aria-label="Scoreboard">
+      <div class="stat">
+        <span class="stat-label">Score</span>
+        <span class="stat-value" id="score">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Combo</span>
+        <span class="stat-value" id="combo">&times;1</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Time</span>
+        <span class="stat-value" id="time">60</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Best</span>
+        <span class="stat-value" id="best">0</span>
+      </div>
+    </section>
+
+    <section class="stage" id="stage">
+      <div class="status" id="status">Load a guide RNA to begin</div>
+
+      <!-- The DNA double helix. Columns are injected by script.js -->
+      <div class="helix" id="helix">
+        <div class="backbone backbone-top"></div>
+        <div class="strand" id="strand"></div>
+        <div class="backbone backbone-bottom"></div>
+      </div>
+
+      <!-- Start / game-over overlay -->
+      <div class="overlay" id="overlay">
+        <div class="card" id="card-start">
+          <h2>Ready to edit a genome?</h2>
+          <p>
+            A short stretch of DNA will light up next to its <b>PAM</b> site,
+            the signal Cas9 uses to know where to cut. Click the glowing target
+            as fast as you can. Speed and streaks multiply your score.
+          </p>
+          <button class="btn" id="start-btn">Start editing</button>
+          <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
+        </div>
+
+        <div class="card hidden" id="card-end">
+          <h2 id="end-title">Round complete</h2>
+          <div class="scoreline">
+            <div><span class="scoreline-num" id="final-score">0</span><span class="scoreline-lbl">score</span></div>
+            <div><span class="scoreline-num" id="final-cuts">0</span><span class="scoreline-lbl">cuts</span></div>
+            <div><span class="scoreline-num" id="final-acc">0%</span><span class="scoreline-lbl">accuracy</span></div>
+          </div>
+          <p id="end-note" class="end-note"></p>
+          <button class="btn" id="again-btn">Edit again</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>A-T and G-C pairs are generated correctly. The cut fires just upstream of the PAM, the way Cas9 really works.</span>
+    </footer>
+  </main>
+
+  <script>
+/* ============================================================
+   CutSite  -  game logic
+   ------------------------------------------------------------
+   How a round works:
+     1. A strand of DNA is drawn as a row of base pairs.
+     2. Every so often a short window of bases starts to
+        fluoresce (glow) next to a PAM site. That is the target.
+     3. You click the glow before its timer runs out.
+        - A fast click scores more and builds your combo.
+        - Letting it expire breaks the combo.
+     4. After 60 seconds the round ends and your best score
+        is saved in the browser.
+   The code is grouped into: config, state, setup, the DNA
+   strand, the target loop, scoring, sound, and helpers.
+   ============================================================ */
+
+// ---------- 1. CONFIG ----------
+const CONFIG = {
+  roundSeconds: 60,      // length of one round
+  strandLength: 30,      // number of base pairs drawn
+  targetLength: 5,       // how many bases fluoresce at once
+  basePoints: 100,       // points before combo + speed bonus
+  comboCap: 10,          // combo multiplier stops climbing here
+  windowStart: 1500,     // ms you get to click an early target
+  windowMin: 650,        // ms window once you are fully warmed up
+  gapAfterHit: 420,      // pause before the next target appears
+  gapAfterMiss: 650,
+};
+
+// DNA base pairing. Cas9 needs a PAM (here we use "GG") just
+// 3' of the target, so we make sure one shows up at the target end.
+const COMPLEMENT = { A: "T", T: "A", G: "C", C: "G" };
+const BASES = ["A", "T", "G", "C"];
+
+// ---------- 2. STATE ----------
+const state = {
+  running: false,
+  score: 0,
+  combo: 1,
+  cuts: 0,
+  misses: 0,
+  timeLeft: CONFIG.roundSeconds,
+  activeTarget: null,   // { start, end, spawnedAt, window, expiry }
+  timers: { round: null, spawn: null, expiry: null },
+  muted: false,
+};
+
+// ---------- 3. DOM + SETUP ----------
+const el = {
+  strand: document.getElementById("strand"),
+  status: document.getElementById("status"),
+  score: document.getElementById("score"),
+  combo: document.getElementById("combo"),
+  time: document.getElementById("time"),
+  best: document.getElementById("best"),
+  overlay: document.getElementById("overlay"),
+  cardStart: document.getElementById("card-start"),
+  cardEnd: document.getElementById("card-end"),
+  startBtn: document.getElementById("start-btn"),
+  againBtn: document.getElementById("again-btn"),
+  muteBtn: document.getElementById("mute-btn"),
+  finalScore: document.getElementById("final-score"),
+  finalCuts: document.getElementById("final-cuts"),
+  finalAcc: document.getElementById("final-acc"),
+  endTitle: document.getElementById("end-title"),
+  endNote: document.getElementById("end-note"),
+  scissors: document.getElementById("scissors"),
+  stage: document.getElementById("stage"),
+};
+
+el.best.textContent = loadBest();
+
+el.startBtn.addEventListener("click", startGame);
+el.againBtn.addEventListener("click", startGame);
+el.muteBtn.addEventListener("click", toggleMute);
+
+// A single click handler on the strand decides hit vs miss.
+el.strand.addEventListener("click", handleStrandClick);
+
+// The scissors follow the pointer while a round is live.
+document.addEventListener("pointermove", moveScissors);
+document.addEventListener("pointerdown", snipScissors);
+
+buildStrand();
+
+// ---------- 4. THE DNA STRAND ----------
+function buildStrand() {
+  el.strand.innerHTML = "";
+  for (let i = 0; i < CONFIG.strandLength; i++) {
+    const top = BASES[Math.floor(Math.random() * 4)];
+    const bottom = COMPLEMENT[top];
+
+    const col = document.createElement("div");
+    col.className = "col";
+    col.dataset.index = i;
+    col.innerHTML = `
+      <span class="base base-${top}">${top}</span>
+      <span class="rung"></span>
+      <span class="base base-${bottom}">${bottom}</span>`;
+    el.strand.appendChild(col);
+  }
+}
+
+function columns() {
+  return Array.from(el.strand.children);
+}
+
+// ---------- 5. GAME FLOW ----------
+function startGame() {
+  clearTimers();
+  buildStrand();
+
+  state.running = true;
+  state.score = 0;
+  state.combo = 1;
+  state.cuts = 0;
+  state.misses = 0;
+  state.timeLeft = CONFIG.roundSeconds;
+  state.activeTarget = null;
+
+  el.score.textContent = "0";
+  el.combo.textContent = "\u00d71";
+  el.time.textContent = CONFIG.roundSeconds;
+  el.time.classList.remove("low");
+  el.overlay.classList.add("hidden");
+  el.scissors.classList.add("active");
+  el.stage.style.cursor = "none";
+  setStatus("Guide RNA loaded. Watch for the glow.", false);
+
+  // countdown
+  state.timers.round = setInterval(() => {
+    state.timeLeft--;
+    el.time.textContent = state.timeLeft;
+    if (state.timeLeft <= 10) el.time.classList.add("low");
+    if (state.timeLeft <= 0) endGame();
+  }, 1000);
+
+  scheduleSpawn(600);
+}
+
+function endGame() {
+  state.running = false;
+  clearTimers();
+  clearTarget();
+  el.scissors.classList.remove("active");
+  el.stage.style.cursor = "";
+
+  const best = loadBest();
+  const isRecord = state.score > best;
+  if (isRecord) saveBest(state.score);
+  el.best.textContent = loadBest();
+
+  const accuracy = state.cuts + state.misses === 0
+    ? 0
+    : Math.round((state.cuts / (state.cuts + state.misses)) * 100);
+
+  el.finalScore.textContent = state.score.toLocaleString();
+  el.finalCuts.textContent = state.cuts;
+  el.finalAcc.textContent = accuracy + "%";
+  el.endTitle.textContent = isRecord ? "New personal best" : "Round complete";
+  el.endNote.textContent = endMessage(state.cuts, accuracy, isRecord);
+
+  el.cardStart.classList.add("hidden");
+  el.cardEnd.classList.remove("hidden");
+  el.overlay.classList.remove("hidden");
+}
+
+// ---------- 6. THE TARGET LOOP ----------
+function scheduleSpawn(delay) {
+  state.timers.spawn = setTimeout(spawnTarget, delay);
+}
+
+function spawnTarget() {
+  if (!state.running) return;
+
+  const cols = columns();
+  // Leave room for the target plus its PAM at the 3' end.
+  const maxStart = CONFIG.strandLength - CONFIG.targetLength - 1;
+  const start = Math.floor(Math.random() * maxStart);
+  const end = start + CONFIG.targetLength - 1;
+
+  // Force a PAM ("GG") on the two bases just past the target so the
+  // cut site is biologically motivated, and tag them for the label.
+  setBase(cols[end + 1], "G");
+  setBase(cols[end + 2], "G");
+  cols[end + 1].classList.add("pam");
+  cols[end + 2].classList.add("pam");
+
+  for (let i = start; i <= end; i++) cols[i].classList.add("in-target");
+
+  const window = currentWindow();
+  state.activeTarget = { start, end, spawnedAt: performance.now(), window };
+  setStatus("Target locked. Cut it!", true);
+
+  state.timers.expiry = setTimeout(onExpire, window);
+}
+
+function onExpire() {
+  if (!state.activeTarget) return;
+  clearTarget();
+  state.combo = 1;
+  el.combo.textContent = "\u00d71";
+  state.misses++;
+  setStatus("The site got away. Combo reset.", false);
+  scheduleSpawn(CONFIG.gapAfterMiss);
+}
+
+function clearTarget() {
+  clearTimeout(state.timers.expiry);
+  columns().forEach((c) => c.classList.remove("in-target", "pam"));
+  state.activeTarget = null;
+}
+
+// ---------- 7. CLICKS + SCORING ----------
+function handleStrandClick(e) {
+  if (!state.running || !state.activeTarget) return;
+
+  const col = e.target.closest(".col");
+  const hit = col && col.classList.contains("in-target");
+
+  if (hit) {
+    registerHit(col, e);
+  } else {
+    // A stray snip on plain DNA. Kept gentle: no combo loss.
+    setStatus("Missed the strand. No damage done.", false);
+  }
+}
+
+function registerHit(col, e) {
+  const t = state.activeTarget;
+  const cols = columns();
+
+  // reaction bonus: the faster you were inside the window, the more
+  const elapsed = performance.now() - t.spawnedAt;
+  const speed = Math.max(0, 1 - elapsed / t.window); // 1 = instant
+  const bonus = Math.round(CONFIG.basePoints * speed * 0.6);
+  const gained = (CONFIG.basePoints + bonus) * state.combo;
+
+  state.score += gained;
+  state.cuts++;
+  state.combo = Math.min(CONFIG.comboCap, state.combo + 1);
+
+  el.score.textContent = state.score.toLocaleString();
+  el.combo.textContent = "\u00d7" + state.combo;
+  bump(el.score);
+  bump(el.combo);
+
+  // visual + audio snip across the whole target window
+  for (let i = t.start; i <= t.end; i++) {
+    cols[i].classList.add("cut");
+    setTimeout(() => cols[i].classList.remove("cut"), 400);
+  }
+  floatPoints(col, "+" + gained.toLocaleString());
+  playSnip();
+
+  clearTarget();
+  setStatus("Clean cut. Cas9 moves on.", true);
+  scheduleSpawn(CONFIG.gapAfterHit);
+}
+
+// difficulty: the window shrinks as you land more cuts
+function currentWindow() {
+  const ramp = Math.min(1, state.cuts / 25);
+  return Math.round(CONFIG.windowStart - (CONFIG.windowStart - CONFIG.windowMin) * ramp);
+}
+
+// ---------- 8. SOUND (synthesised, no files) ----------
+let audioCtx = null;
+function playSnip() {
+  if (state.muted) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+    // two quick metallic blips for a "snik-snik"
+    [0, 0.07].forEach((offset) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(880, now + offset);
+      osc.frequency.exponentialRampToValueAtTime(320, now + offset + 0.05);
+      gain.gain.setValueAtTime(0.12, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.06);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.07);
+    });
+  } catch (err) {
+    /* audio is a nice-to-have; ignore if the browser blocks it */
+  }
+}
+
+function toggleMute() {
+  state.muted = !state.muted;
+  el.muteBtn.textContent = state.muted ? "Sound: off" : "Sound: on";
+  el.muteBtn.setAttribute("aria-pressed", String(state.muted));
+}
+
+// ---------- 9. HELPERS ----------
+function setBase(col, letter) {
+  const [topEl, bottomEl] = col.querySelectorAll(".base");
+  topEl.textContent = letter;
+  topEl.className = "base base-" + letter;
+  const comp = COMPLEMENT[letter];
+  bottomEl.textContent = comp;
+  bottomEl.className = "base base-" + comp;
+}
+
+function setStatus(text, hot) {
+  el.status.textContent = text;
+  el.status.classList.toggle("hot", !!hot);
+}
+
+function bump(node) {
+  node.classList.remove("bump");
+  void node.offsetWidth; // restart the animation
+  node.classList.add("bump");
+}
+
+function floatPoints(col, text) {
+  const pop = document.createElement("div");
+  pop.className = "pop";
+  pop.textContent = text;
+  const rect = col.getBoundingClientRect();
+  const stageRect = el.stage.getBoundingClientRect();
+  pop.style.left = rect.left - stageRect.left + rect.width / 2 + "px";
+  pop.style.top = rect.top - stageRect.top - 6 + "px";
+  el.stage.appendChild(pop);
+  setTimeout(() => pop.remove(), 700);
+}
+
+function moveScissors(e) {
+  el.scissors.style.left = e.clientX + "px";
+  el.scissors.style.top = e.clientY + "px";
+}
+
+function snipScissors() {
+  if (!state.running) return;
+  el.scissors.classList.add("snip");
+  setTimeout(() => el.scissors.classList.remove("snip"), 110);
+}
+
+function clearTimers() {
+  clearInterval(state.timers.round);
+  clearTimeout(state.timers.spawn);
+  clearTimeout(state.timers.expiry);
+}
+
+function endMessage(cuts, acc, record) {
+  if (record) return "Sharpest editing yet. Cas9 would be proud.";
+  if (cuts === 0) return "The glow is your cue. Click it the instant it lights up.";
+  if (acc >= 90) return "Surgical precision. Try chaining longer combos next.";
+  if (acc >= 60) return "Solid work. A little faster and the multiplier climbs.";
+  return "Keep an eye on the PAM. That is where the cut lands.";
+}
+
+// ---------- best score in the browser ----------
+function loadBest() {
+  try { return Number(localStorage.getItem("cutsite-best") || 0); }
+  catch (e) { return 0; }
+}
+function saveBest(value) {
+  try { localStorage.setItem("cutsite-best", String(value)); }
+  catch (e) { /* private mode: skip saving */ }
+}
+
+</script>
+</body>
+</html>
