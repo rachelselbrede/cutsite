@@ -303,12 +303,12 @@ body {
 }
 .overlay.hidden { display: none; }
 .card {
-  width: min(440px, 92%);
+  width: min(460px, 95%);
   text-align: center;
   background: linear-gradient(180deg, var(--panel), var(--bg-2));
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
-  padding: 26px 16px;
+  padding: 26px 14px;
 }
 .card.hidden { display: none; }
 .card h2 { margin: 0 0 10px; font-size: 1.4rem; }
@@ -380,6 +380,8 @@ body {
   .brand h1 { font-size: 1.55rem; }
   .col { gap: 10px; }
   .base { font-size: 0.68rem; }
+  .mode-selector { flex-direction: column; }
+  .mode-btn { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -397,16 +399,17 @@ body {
   flex-wrap: wrap;
 }
 .mode-btn {
-  flex: 0 1 auto;
-  width: 140px;
+  flex: 1 1 auto;
+  max-width: 160px;
+  min-width: 120px;
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--panel-line);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 7px 10px;
   font-family: inherit;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
