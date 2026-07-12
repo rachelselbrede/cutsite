@@ -380,8 +380,6 @@ body {
   .brand h1 { font-size: 1.55rem; }
   .col { gap: 10px; }
   .base { font-size: 0.68rem; }
-  .mode-selector { flex-direction: column; }
-  .mode-btn { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -393,26 +391,23 @@ body {
 /* ---------- mode selector ---------- */
 .mode-selector {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   justify-content: center;
   margin-bottom: 16px;
-  flex-wrap: wrap;
 }
 .mode-btn {
-  flex: 1 1 auto;
-  max-width: 160px;
-  min-width: 120px;
+  width: 100%;
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--panel-line);
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 10px 14px;
   font-family: inherit;
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  white-space: nowrap;
 }
 .mode-btn:hover {
   color: var(--ink);
