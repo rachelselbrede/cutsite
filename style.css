@@ -134,7 +134,7 @@ body {
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
   padding: 30px 22px 34px;
-  min-height: 260px;
+  min-height: 340px;
   overflow: hidden;
   transition: transform 0.08s ease;
 }
@@ -308,11 +308,11 @@ body {
   background: linear-gradient(180deg, var(--panel), var(--bg-2));
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
-  padding: 26px 14px;
+  padding: 16px 12px;
 }
 .card.hidden { display: none; }
-.card h2 { margin: 0 0 10px; font-size: 1.4rem; }
-.card p { color: var(--muted); font-size: 0.95rem; line-height: 1.55; margin: 0 0 20px; }
+.card h2 { margin: 0 0 8px; font-size: 1.3rem; }
+.card p { color: var(--muted); font-size: 0.92rem; line-height: 1.45; margin: 0 0 14px; }
 .card b { color: var(--glow); font-weight: 700; }
 
 .btn {
@@ -392,9 +392,9 @@ body {
 .mode-selector {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .mode-btn {
   width: 100%;
@@ -402,10 +402,10 @@ body {
   color: var(--muted);
   border: 1px solid var(--panel-line);
   border-radius: 8px;
-  padding: 10px 14px;
+  padding: 7px 10px;
   font-family: inherit;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s ease;
 }
