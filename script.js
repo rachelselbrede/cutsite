@@ -43,6 +43,7 @@ const state = {
   activeTarget: null,   // { start, end, spawnedAt, window, expiry }
   timers: { round: null, spawn: null, expiry: null },
   muted: false,
+  gameMode: 'classic',  // 'classic' or 'zen'
 };
 
 // ---------- 3. DOM + SETUP ----------
@@ -59,20 +60,31 @@ const el = {
   startBtn: document.getElementById("start-btn"),
   againBtn: document.getElementById("again-btn"),
   muteBtn: document.getElementById("mute-btn"),
-  finalScore: document.getElementById("final-score"),
+  stopBtn: document.getElementById("stop-btn"),
   finalCuts: document.getElementById("final-cuts"),
   finalAcc: document.getElementById("final-acc"),
+  leaderboard: document.getElementById("leaderboard"),
   endTitle: document.getElementById("end-title"),
   endNote: document.getElementById("end-note"),
   scissors: document.getElementById("scissors"),
   stage: document.getElementById("stage"),
 };
 
-el.best.textContent = loadBest();
+el.best.textContent = getBestScore();
 
 el.startBtn.addEventListener("click", startGame);
 el.againBtn.addEventListener("click", startGame);
 el.muteBtn.addEventListener("click", toggleMute);
+el.stopBtn.addEventListener("click", endGame);
+
+// Mode selection listeners
+document.querySelectorAll(".mode-btn").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("selected"));
+    e.target.classList.add("selected");
+    state.gameMode = e.target.dataset.mode;
+  });
+});
 
 // A single click handler on the strand decides hit vs miss.
 el.strand.addEventListener("click", handleStrandClick);
@@ -127,13 +139,24 @@ function startGame() {
   el.stage.style.cursor = "none";
   setStatus("Guide RNA loaded. Watch for the glow.", false);
 
-  // countdown
-  state.timers.round = setInterval(() => {
-    state.timeLeft--;
-    el.time.textContent = state.timeLeft;
-    if (state.timeLeft <= 10) el.time.classList.add("low");
-    if (state.timeLeft <= 0) endGame();
-  }, 1000);
+  // Show/hide timer and stop button based on mode
+  if (state.gameMode === 'zen') {
+    el.time.classList.add("hidden");
+    el.stopBtn.classList.remove("hidden");
+  } else {
+    el.time.classList.remove("hidden");
+    el.stopBtn.classList.add("hidden");
+  }
+
+  // countdown (only for classic mode)
+  if (state.gameMode === 'classic') {
+    state.timers.round = setInterval(() => {
+      state.timeLeft--;
+      el.time.textContent = state.timeLeft;
+      if (state.timeLeft <= 10) el.time.classList.add("low");
+      if (state.timeLeft <= 0) endGame();
+    }, 1000);
+  }
 
   scheduleSpawn(600);
 }
@@ -144,21 +167,28 @@ function endGame() {
   clearTarget();
   el.scissors.classList.remove("active");
   el.stage.style.cursor = "";
+  el.stopBtn.classList.add("hidden");
 
-  const best = loadBest();
+  const best = getBestScore();
   const isRecord = state.score > best;
-  if (isRecord) saveBest(state.score);
-  el.best.textContent = loadBest();
+  saveScore(state.score);
+  el.best.textContent = getBestScore();
 
   const accuracy = state.cuts + state.misses === 0
     ? 0
     : Math.round((state.cuts / (state.cuts + state.misses)) * 100);
 
-  el.finalScore.textContent = state.score.toLocaleString();
   el.finalCuts.textContent = state.cuts;
   el.finalAcc.textContent = accuracy + "%";
   el.endTitle.textContent = isRecord ? "New personal best" : "Round complete";
   el.endNote.textContent = endMessage(state.cuts, accuracy, isRecord);
+
+  // Populate leaderboard
+  const scores = loadScores();
+  const leaderboardHTML = scores.slice(0, 10).map((s, i) =>
+    `<li>${i + 1}. ${s.toLocaleString()}</li>`
+  ).join("");
+  el.leaderboard.innerHTML = `<ol>${leaderboardHTML}</ol>`;
 
   el.cardStart.classList.add("hidden");
   el.cardEnd.classList.remove("hidden");
@@ -379,12 +409,34 @@ function endMessage(cuts, acc, record) {
   return "Keep an eye on the PAM. That is where the cut lands.";
 }
 
-// ---------- best score in the browser ----------
-function loadBest() {
-  try { return Number(localStorage.getItem("cutsite-best") || 0); }
-  catch (e) { return 0; }
+// ---------- score management in the browser ----------
+function loadScores() {
+  try {
+    // Migrate old single-score format to array
+    const oldBest = localStorage.getItem("cutsite-best");
+    if (oldBest) {
+      localStorage.removeItem("cutsite-best");
+      const scores = [Number(oldBest)];
+      localStorage.setItem("cutsite-scores", JSON.stringify(scores));
+      return scores;
+    }
+    const scores = JSON.parse(localStorage.getItem("cutsite-scores") || "[]");
+    return Array.isArray(scores) ? scores : [];
+  }
+  catch (e) { return []; }
 }
-function saveBest(value) {
-  try { localStorage.setItem("cutsite-best", String(value)); }
+
+function saveScore(value) {
+  try {
+    const scores = loadScores();
+    scores.push(value);
+    scores.sort((a, b) => b - a); // sort descending
+    localStorage.setItem("cutsite-scores", JSON.stringify(scores.slice(0, 10))); // keep top 10
+  }
   catch (e) { /* private mode: skip saving */ }
+}
+
+function getBestScore() {
+  const scores = loadScores();
+  return scores.length > 0 ? scores[0] : 0;
 }

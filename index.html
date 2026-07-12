@@ -65,6 +65,7 @@
 
       <!-- Start / game-over overlay -->
       <div class="overlay" id="overlay">
+        <button class="btn hidden" id="stop-btn">Stop Editing</button>
         <div class="card" id="card-start">
           <h2>Ready to edit a genome?</h2>
           <p>
@@ -72,6 +73,10 @@
             the signal Cas9 uses to know where to cut. Click the glowing target
             as fast as you can. Speed and streaks multiply your score.
           </p>
+          <div class="mode-selector">
+            <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
+            <button class="mode-btn" data-mode="zen">Zen (endless)</button>
+          </div>
           <button class="btn" id="start-btn">Start editing</button>
           <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
         </div>
@@ -79,10 +84,10 @@
         <div class="card hidden" id="card-end">
           <h2 id="end-title">Round complete</h2>
           <div class="scoreline">
-            <div><span class="scoreline-num" id="final-score">0</span><span class="scoreline-lbl">score</span></div>
             <div><span class="scoreline-num" id="final-cuts">0</span><span class="scoreline-lbl">cuts</span></div>
             <div><span class="scoreline-num" id="final-acc">0%</span><span class="scoreline-lbl">accuracy</span></div>
           </div>
+          <div id="leaderboard" class="leaderboard"></div>
           <p id="end-note" class="end-note"></p>
           <button class="btn" id="again-btn">Edit again</button>
         </div>
