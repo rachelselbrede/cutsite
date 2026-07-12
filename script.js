@@ -16,7 +16,7 @@
 
 // ---------- 1. CONFIG ----------
 const CONFIG = {
-  roundSeconds: 60,      // length of one round
+  roundSeconds: 30,      // length of one round
   strandLength: 30,      // number of base pairs drawn
   targetLength: 5,       // how many bases fluoresce at once
   basePoints: 100,       // points before combo + speed bonus
