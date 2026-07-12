@@ -234,7 +234,12 @@ function registerHit(col, e) {
   const elapsed = performance.now() - t.spawnedAt;
   const speed = Math.max(0, 1 - elapsed / t.window); // 1 = instant
   const bonus = Math.round(CONFIG.basePoints * speed * 0.6);
-  const gained = (CONFIG.basePoints + bonus) * state.combo;
+  let gained = (CONFIG.basePoints + bonus) * state.combo;
+
+  // combo milestone bonuses (500 extra at 5, 10 combo streaks)
+  if (state.combo > 0 && state.combo % 5 === 0) {
+    gained += 500;
+  }
 
   state.score += gained;
   state.cuts++;
@@ -244,6 +249,12 @@ function registerHit(col, e) {
   el.combo.textContent = "\u00d7" + state.combo;
   bump(el.score);
   bump(el.combo);
+
+  // screen shake on perfect hits (fast reaction)
+  if (speed > 0.6) {
+    el.stage.classList.add("shake");
+    setTimeout(() => el.stage.classList.remove("shake"), 200);
+  }
 
   // visual + audio snip across the whole target window
   for (let i = t.start; i <= t.end; i++) {
@@ -326,6 +337,21 @@ function floatPoints(col, text) {
   pop.style.top = rect.top - stageRect.top - 6 + "px";
   el.stage.appendChild(pop);
   setTimeout(() => pop.remove(), 700);
+
+  // particle burst effect
+  for (let i = 0; i < 6; i++) {
+    const particle = document.createElement("div");
+    particle.className = "particle";
+    const angle = (i / 6) * Math.PI * 2;
+    const vx = Math.cos(angle) * 80;
+    const vy = Math.sin(angle) * 80;
+    particle.style.left = (rect.left - stageRect.left + rect.width / 2) + "px";
+    particle.style.top = (rect.top - stageRect.top + rect.height / 2) + "px";
+    particle.style.setProperty("--vx", vx);
+    particle.style.setProperty("--vy", vy);
+    el.stage.appendChild(particle);
+    setTimeout(() => particle.remove(), 600);
+  }
 }
 
 function moveScissors(e) {
