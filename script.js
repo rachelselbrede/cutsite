@@ -185,8 +185,8 @@ function endGame() {
 
   // Populate leaderboard
   const scores = loadScores();
-  const leaderboardHTML = scores.slice(0, 10).map((s, i) =>
-    `<li>${i + 1}. ${s.toLocaleString()}</li>`
+  const leaderboardHTML = scores.slice(0, 10).map((s) =>
+    `<li>${s.toLocaleString()}</li>`
   ).join("");
   el.leaderboard.innerHTML = `<ol>${leaderboardHTML}</ol>`;
 
