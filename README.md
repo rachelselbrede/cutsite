@@ -60,3 +60,11 @@ easy to read and extend.
 ## Credits
 
 Made by Rachel Selbrede as a portfolio project. Feedback and pull requests welcome.
+
+## Features
+
+- **Classic Mode**: 30-second timed rounds with escalating difficulty
+- **Zen Mode**: Endless practice mode for relaxation  
+- **Leaderboard**: Track your top 10 scores with persistent browser storage
+- **Visual Feedback**: Screen shake on perfect hits, particle burst effects, combo bonuses
+- **Authentic CRISPR**: Accurate base pairing (A-T, G-C) and PAM site placement
