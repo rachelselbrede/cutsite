@@ -66,6 +66,7 @@ const el = {
   combo: document.getElementById("combo"),
   time: document.getElementById("time"),
   difficulty: document.getElementById("difficulty"),
+  accuracyDisplay: document.getElementById("accuracy-display"),
   best: document.getElementById("best"),
   overlay: document.getElementById("overlay"),
   cardStart: document.getElementById("card-start"),
@@ -263,6 +264,7 @@ function onExpire() {
   state.combo = 1;
   el.combo.textContent = "\u00d71";
   state.misses++;
+  updateAccuracyDisplay();
   setStatus("The site got away. Combo reset.", false);
   scheduleSpawn(CONFIG.gapAfterMiss);
 }
@@ -333,6 +335,7 @@ function registerHit(col, e) {
   const diffLevel = getDifficultyLevel();
   el.difficulty.textContent = diffLevel + "%";
   el.difficulty.setAttribute("data-level", diffLevel >= 67 ? "high" : diffLevel >= 34 ? "med" : "low");
+  updateAccuracyDisplay();
   bump(el.score);
   bump(el.combo);
 
@@ -463,6 +466,18 @@ function endMessage(cuts, acc, record) {
   if (acc >= 90) return "Surgical precision. Try chaining longer combos next.";
   if (acc >= 60) return "Solid work. A little faster and the multiplier climbs.";
   return "Keep an eye on the PAM. That is where the cut lands.";
+}
+
+// ---------- accuracy display ----------
+function updateAccuracyDisplay() {
+  if (!state.running) return;
+  const total = state.cuts + state.misses;
+  if (total === 0) {
+    el.accuracyDisplay.textContent = "Accuracy: —";
+  } else {
+    const acc = Math.round((state.cuts / total) * 100);
+    el.accuracyDisplay.textContent = `Accuracy: ${acc}%`;
+  }
 }
 
 // ---------- achievements ----------

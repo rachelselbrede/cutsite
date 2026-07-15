@@ -173,6 +173,17 @@ body {
   min-height: 1.2em;
 }
 .status.hot { color: var(--glow); }
+.accuracy-display {
+  position: relative;
+  text-align: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 18px;
+  min-height: 1em;
+  transition: color 0.2s ease;
+}
 
 /* ---------- DNA helix ---------- */
 .helix { position: relative; padding: 20px 0; }
