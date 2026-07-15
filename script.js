@@ -44,6 +44,18 @@ const state = {
   timers: { round: null, spawn: null, expiry: null },
   muted: false,
   gameMode: 'classic',  // 'classic' or 'zen'
+  earnedAchievements: [], // achievements earned this session
+  maxCombo: 1,
+  consecutivePerfects: 0,
+};
+
+// ---------- 1.5. ACHIEVEMENTS ----------
+const ACHIEVEMENTS = {
+  firstBlood: { id: 'firstBlood', name: 'First Blood', desc: 'Make your first cut' },
+  comboMaster: { id: 'comboMaster', name: 'Combo Master', desc: 'Reach a 10+ combo streak' },
+  speedDemon: { id: 'speedDemon', name: 'Speed Demon', desc: 'Score 500+ points on a single cut' },
+  flawless: { id: 'flawless', name: 'Flawless', desc: '3 consecutive perfect hits' },
+  perfect: { id: 'perfect', name: 'Precision', desc: 'Achieve 90%+ accuracy' },
 };
 
 // ---------- 3. DOM + SETUP ----------
@@ -129,6 +141,9 @@ function startGame() {
   state.misses = 0;
   state.timeLeft = CONFIG.roundSeconds;
   state.activeTarget = null;
+  state.earnedAchievements = [];
+  state.maxCombo = 1;
+  state.consecutivePerfects = 0;
 
   el.score.textContent = "0";
   el.combo.textContent = "\u00d71";
@@ -178,10 +193,25 @@ function endGame() {
     ? 0
     : Math.round((state.cuts / (state.cuts + state.misses)) * 100);
 
+  // Check for achievements
+  checkAchievements();
+
   el.finalCuts.textContent = state.cuts;
   el.finalAcc.textContent = accuracy + "%";
   el.endTitle.textContent = isRecord ? "New personal best" : "Round complete";
   el.endNote.textContent = endMessage(state.cuts, accuracy, isRecord);
+
+  // Display achievements
+  if (state.earnedAchievements.length > 0) {
+    const achievementHTML = state.earnedAchievements.map(id => {
+      const ach = ACHIEVEMENTS[id];
+      return `<div class="achievement"><div class="achievement-name">🏆 ${ach.name}</div><div class="achievement-desc">${ach.desc}</div></div>`;
+    }).join("");
+    const achievementsDiv = document.createElement("div");
+    achievementsDiv.className = "achievements-earned";
+    achievementsDiv.innerHTML = achievementHTML;
+    el.cardEnd.insertBefore(achievementsDiv, el.cardEnd.querySelector(".scoreline"));
+  }
 
   // Populate leaderboard
   const scores = loadScores();
@@ -274,6 +304,27 @@ function registerHit(col, e) {
   state.score += gained;
   state.cuts++;
   state.combo = Math.min(CONFIG.comboCap, state.combo + 1);
+  state.maxCombo = Math.max(state.maxCombo, state.combo);
+
+  // Achievement: First Blood
+  if (state.cuts === 1) {
+    unlockAchievement('firstBlood');
+  }
+
+  // Achievement: Speed Demon (500+ on single cut)
+  if (gained >= 500) {
+    unlockAchievement('speedDemon');
+  }
+
+  // Achievement: Flawless (3 consecutive perfect hits)
+  if (speed > 0.8) {
+    state.consecutivePerfects++;
+    if (state.consecutivePerfects >= 3) {
+      unlockAchievement('flawless');
+    }
+  } else {
+    state.consecutivePerfects = 0;
+  }
 
   el.score.textContent = state.score.toLocaleString();
   el.combo.textContent = "\u00d7" + state.combo;
@@ -407,6 +458,29 @@ function endMessage(cuts, acc, record) {
   if (acc >= 90) return "Surgical precision. Try chaining longer combos next.";
   if (acc >= 60) return "Solid work. A little faster and the multiplier climbs.";
   return "Keep an eye on the PAM. That is where the cut lands.";
+}
+
+// ---------- achievements ----------
+function unlockAchievement(achievementId) {
+  if (!state.earnedAchievements.includes(achievementId)) {
+    state.earnedAchievements.push(achievementId);
+  }
+}
+
+function checkAchievements() {
+  const accuracy = state.cuts + state.misses === 0
+    ? 0
+    : Math.round((state.cuts / (state.cuts + state.misses)) * 100);
+
+  // Achievement: Combo Master (10+ combo)
+  if (state.maxCombo >= 10) {
+    unlockAchievement('comboMaster');
+  }
+
+  // Achievement: Precision (90%+ accuracy)
+  if (accuracy >= 90 && state.cuts >= 5) {
+    unlockAchievement('perfect');
+  }
 }
 
 // ---------- score management in the browser ----------
