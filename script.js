@@ -440,3 +440,9 @@ function getBestScore() {
   const scores = loadScores();
   return scores.length > 0 ? scores[0] : 0;
 }
+
+// Display difficulty indicator
+function getDifficultyLevel() {
+  const ramp = Math.min(1, state.cuts / 25);
+  return Math.round(ramp * 100);
+}
