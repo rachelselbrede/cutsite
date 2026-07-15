@@ -65,6 +65,7 @@ const el = {
   score: document.getElementById("score"),
   combo: document.getElementById("combo"),
   time: document.getElementById("time"),
+  difficulty: document.getElementById("difficulty"),
   best: document.getElementById("best"),
   overlay: document.getElementById("overlay"),
   cardStart: document.getElementById("card-start"),
@@ -147,6 +148,7 @@ function startGame() {
 
   el.score.textContent = "0";
   el.combo.textContent = "\u00d71";
+  el.difficulty.textContent = "0%";
   el.time.textContent = CONFIG.roundSeconds;
   el.time.classList.remove("low");
   el.overlay.classList.add("hidden");
@@ -328,6 +330,9 @@ function registerHit(col, e) {
 
   el.score.textContent = state.score.toLocaleString();
   el.combo.textContent = "\u00d7" + state.combo;
+  const diffLevel = getDifficultyLevel();
+  el.difficulty.textContent = diffLevel + "%";
+  el.difficulty.setAttribute("data-level", diffLevel >= 67 ? "high" : diffLevel >= 34 ? "med" : "low");
   bump(el.score);
   bump(el.combo);
 

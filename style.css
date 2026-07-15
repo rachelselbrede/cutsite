@@ -119,6 +119,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 #time.low { color: var(--danger); }
+#difficulty {
+  transition: color 0.3s ease;
+}
+#difficulty[data-level="high"] { color: var(--danger); }
+#difficulty[data-level="med"] { color: var(--cas9); }
 .stat-value.bump { animation: bump 0.28s ease; }
 @keyframes bump {
   0% { transform: scale(1); }
