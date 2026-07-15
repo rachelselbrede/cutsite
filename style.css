@@ -438,6 +438,32 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- achievements ---------- */
+.achievements-earned {
+  margin: 16px 0;
+  padding: 12px;
+  background: rgba(46, 230, 200, 0.1);
+  border: 1px solid var(--glow-soft);
+  border-radius: 10px;
+}
+
+.achievement {
+  padding: 8px 0;
+  text-align: center;
+}
+
+.achievement-name {
+  font-weight: 700;
+  color: var(--glow);
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.achievement-desc {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 /* ---------- utility classes ---------- */
 .hidden {
   display: none !important;
