@@ -81,7 +81,7 @@
             <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
             <button class="mode-btn" data-mode="zen">Zen (endless)</button>
           </div>
-          <button class="btn" id="start-btn">Start editing</button>
+          <button class="btn" id="start-btn" onclick="startGame()">Start editing</button>
           <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
         </div>
 
@@ -93,7 +93,7 @@
           </div>
           <div id="leaderboard" class="leaderboard"></div>
           <p id="end-note" class="end-note"></p>
-          <button class="btn" id="again-btn">Edit again</button>
+          <button class="btn" id="again-btn" onclick="startGame()">Edit again</button>
         </div>
       </div>
     </section>

@@ -86,10 +86,11 @@ const el = {
 
 el.best.textContent = getBestScore();
 
-el.startBtn.addEventListener("click", startGame);
-el.againBtn.addEventListener("click", startGame);
-el.muteBtn.addEventListener("click", toggleMute);
-el.stopBtn.addEventListener("click", endGame);
+// Ensure event listeners are attached after DOM is ready
+if (el.startBtn) el.startBtn.addEventListener("click", startGame);
+if (el.againBtn) el.againBtn.addEventListener("click", startGame);
+if (el.muteBtn) el.muteBtn.addEventListener("click", toggleMute);
+if (el.stopBtn) el.stopBtn.addEventListener("click", endGame);
 
 // Mode selection listeners
 document.querySelectorAll(".mode-btn").forEach(btn => {
