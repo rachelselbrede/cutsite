@@ -8,10 +8,10 @@
      3. You click the glow before its timer runs out.
         - A fast click scores more and builds your combo.
         - Letting it expire breaks the combo.
-     4. After 60 seconds the round ends and your best score
-        is saved in the browser.
+     4. After 30 seconds (classic) or unlimited time (zen)
+        the round ends and your score is saved in the browser.
    The code is grouped into: config, state, setup, the DNA
-   strand, the target loop, scoring, sound, and helpers.
+   strand, the target loop, scoring, achievements, sound, and helpers.
    ============================================================ */
 
 // ---------- 1. CONFIG ----------
