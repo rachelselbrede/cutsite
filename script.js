@@ -541,3 +541,11 @@ function getDifficultyLevel() {
   const ramp = Math.min(1, state.cuts / 25);
   return Math.round(ramp * 100);
 }
+
+// Spacebar to restart game (press during game over screen)
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && !state.running && el.cardEnd.classList.contains("hidden") === false) {
+    e.preventDefault();
+    startGame();
+  }
+});
