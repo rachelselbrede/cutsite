@@ -94,7 +94,7 @@ function initializeScissors() {
 // Call initialization immediately
 initializeScissors();
 
-if (el.best) el.best.textContent = getBestScore();
+if (el.best) el.best.textContent = getBestScore(state.gameMode);
 
 // Ensure event listeners are attached after DOM is ready
 if (el.startBtn) el.startBtn.addEventListener("click", startGame);
@@ -201,10 +201,11 @@ function endGame() {
   el.stage.style.cursor = "";
   el.stopBtn.classList.add("hidden");
 
-  const best = getBestScore();
+  const mode = state.gameMode;
+  const best = getBestScore(mode);
   const isRecord = state.score > best;
-  saveScore(state.score);
-  if (el.best) el.best.textContent = getBestScore();
+  saveScore(state.score, mode);
+  if (el.best) el.best.textContent = getBestScore(mode);
 
   const accuracy = state.cuts + state.misses === 0
     ? 0
@@ -232,12 +233,14 @@ function endGame() {
     el.cardEnd.insertBefore(achievementsDiv, el.cardEnd.querySelector(".scoreline"));
   }
 
-  // Populate leaderboard
-  const scores = loadScores();
+  // Populate leaderboard for the mode just played
+  const scores = loadScores(mode);
+  const boardLabel = mode === "zen" ? "Zen" : "Classic";
   const leaderboardHTML = scores.slice(0, 10).map((s) =>
     `<li>${s.toLocaleString()}</li>`
   ).join("");
-  el.leaderboard.innerHTML = `<ol>${leaderboardHTML}</ol>`;
+  el.leaderboard.innerHTML =
+    `<div class="leaderboard-title">${boardLabel} — top scores</div><ol>${leaderboardHTML}</ol>`;
 
   el.cardStart.classList.add("hidden");
   el.cardEnd.classList.remove("hidden");
@@ -520,34 +523,60 @@ function checkAchievements() {
 }
 
 // ---------- score management in the browser ----------
-function loadScores() {
+// Classic and Zen keep separate boards: Zen is endless, so its scores
+// would otherwise swamp the shared top-10 and bury every Classic run.
+function scoresKey(mode) {
+  return "cutsite-scores-" + (mode === "zen" ? "zen" : "classic");
+}
+
+// One-time migration of the old shared keys into the Classic board.
+// The pre-Zen game was Classic-only, so legacy scores belong there.
+function migrateLegacyScores() {
   try {
-    // Migrate old single-score format to array
-    const oldBest = localStorage.getItem("cutsite-best");
-    if (oldBest) {
-      localStorage.removeItem("cutsite-best");
-      const scores = [Number(oldBest)];
-      localStorage.setItem("cutsite-scores", JSON.stringify(scores));
-      return scores;
+    const legacyBest = localStorage.getItem("cutsite-best");
+    const legacyScores = localStorage.getItem("cutsite-scores");
+    if (!legacyBest && !legacyScores) return;
+
+    const migrated = [];
+    if (legacyScores) {
+      const parsed = JSON.parse(legacyScores);
+      if (Array.isArray(parsed)) parsed.forEach((s) => migrated.push(Number(s)));
     }
-    const scores = JSON.parse(localStorage.getItem("cutsite-scores") || "[]");
+    if (legacyBest) migrated.push(Number(legacyBest));
+
+    const existing = JSON.parse(localStorage.getItem(scoresKey("classic")) || "[]");
+    const combined = existing.concat(migrated)
+      .filter((n) => Number.isFinite(n))
+      .sort((a, b) => b - a)
+      .slice(0, 10);
+    localStorage.setItem(scoresKey("classic"), JSON.stringify(combined));
+    localStorage.removeItem("cutsite-best");
+    localStorage.removeItem("cutsite-scores");
+  }
+  catch (e) { /* ignore migration failures */ }
+}
+
+function loadScores(mode) {
+  try {
+    migrateLegacyScores();
+    const scores = JSON.parse(localStorage.getItem(scoresKey(mode)) || "[]");
     return Array.isArray(scores) ? scores : [];
   }
   catch (e) { return []; }
 }
 
-function saveScore(value) {
+function saveScore(value, mode) {
   try {
-    const scores = loadScores();
+    const scores = loadScores(mode);
     scores.push(value);
     scores.sort((a, b) => b - a); // sort descending
-    localStorage.setItem("cutsite-scores", JSON.stringify(scores.slice(0, 10))); // keep top 10
+    localStorage.setItem(scoresKey(mode), JSON.stringify(scores.slice(0, 10))); // keep top 10
   }
   catch (e) { /* private mode: skip saving */ }
 }
 
-function getBestScore() {
-  const scores = loadScores();
+function getBestScore(mode) {
+  const scores = loadScores(mode);
   return scores.length > 0 ? scores[0] : 0;
 }
 

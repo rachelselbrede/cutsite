@@ -439,6 +439,13 @@ body {
   margin: 12px 0 16px;
   padding: 0;
 }
+.leaderboard-title {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
 .leaderboard ol {
   list-style-position: inside;
   margin: 0;
