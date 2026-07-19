@@ -161,6 +161,7 @@ function startGame() {
   el.score.textContent = "0";
   el.combo.textContent = "\u00d71";
   el.difficulty.textContent = "0%";
+  el.difficulty.setAttribute("data-level", "low");
   el.time.textContent = CONFIG.roundSeconds;
   el.time.classList.remove("low");
   el.overlay.classList.add("hidden");
@@ -217,7 +218,9 @@ function endGame() {
   el.endTitle.textContent = isRecord ? "New personal best" : "Round complete";
   el.endNote.textContent = endMessage(state.cuts, accuracy, isRecord);
 
-  // Display achievements
+  // Display achievements (remove any panel left over from a previous round)
+  const staleAchievements = el.cardEnd.querySelector(".achievements-earned");
+  if (staleAchievements) staleAchievements.remove();
   if (state.earnedAchievements.length > 0) {
     const achievementHTML = state.earnedAchievements.map(id => {
       const ach = ACHIEVEMENTS[id];
