@@ -104,5 +104,15 @@
   </main>
 
   <script src="script.js"></script>
+  <script>
+    // Initialize scissors position after script.js loads
+    (function() {
+      const scissors = document.getElementById('scissors');
+      if (scissors) {
+        scissors.style.left = window.innerWidth / 2 + "px";
+        scissors.style.top = window.innerHeight / 2 + "px";
+      }
+    })();
+  </script>
 </body>
 </html>
