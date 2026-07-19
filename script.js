@@ -84,7 +84,17 @@ const el = {
   stage: document.getElementById("stage"),
 };
 
-el.best.textContent = getBestScore();
+// Initialize scissors position to center
+function initializeScissors() {
+  if (!el.scissors) return;
+  el.scissors.style.left = window.innerWidth / 2 + "px";
+  el.scissors.style.top = window.innerHeight / 2 + "px";
+}
+
+// Call initialization immediately
+initializeScissors();
+
+if (el.best) el.best.textContent = getBestScore();
 
 // Ensure event listeners are attached after DOM is ready
 if (el.startBtn) el.startBtn.addEventListener("click", startGame);
@@ -155,6 +165,8 @@ function startGame() {
   el.time.classList.remove("low");
   el.overlay.classList.add("hidden");
   el.scissors.classList.add("active");
+  // Position scissors at center of screen so they're visible immediately
+  initializeScissors();
   el.stage.style.cursor = "none";
   setStatus("Guide RNA loaded. Watch for the glow.", false);
 
@@ -191,7 +203,7 @@ function endGame() {
   const best = getBestScore();
   const isRecord = state.score > best;
   saveScore(state.score);
-  el.best.textContent = getBestScore();
+  if (el.best) el.best.textContent = getBestScore();
 
   const accuracy = state.cuts + state.misses === 0
     ? 0
