@@ -469,9 +469,32 @@ body {
   border-radius: 10px;
 }
 
+.achievement-progress {
+  text-align: center;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--glow);
+  padding-bottom: 4px;
+}
+
 .achievement {
   padding: 8px 0;
   text-align: center;
+}
+
+.achievement-new {
+  display: inline-block;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #06101f;
+  background: var(--cas9);
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
 }
 
 .achievement-name {

@@ -44,7 +44,8 @@ const state = {
   timers: { round: null, spawn: null, expiry: null },
   muted: false,
   gameMode: 'classic',  // 'classic' or 'zen'
-  earnedAchievements: [], // achievements earned this session
+  earnedAchievements: [], // achievements earned this round
+  previouslyUnlocked: [], // achievements already unlocked before this round (from storage)
   maxCombo: 1,
   consecutivePerfects: 0,
 };
@@ -155,6 +156,7 @@ function startGame() {
   state.timeLeft = CONFIG.roundSeconds;
   state.activeTarget = null;
   state.earnedAchievements = [];
+  state.previouslyUnlocked = loadUnlockedAchievements();
   state.maxCombo = 1;
   state.consecutivePerfects = 0;
 
@@ -222,16 +224,23 @@ function endGame() {
   // Display achievements (remove any panel left over from a previous round)
   const staleAchievements = el.cardEnd.querySelector(".achievements-earned");
   if (staleAchievements) staleAchievements.remove();
-  if (state.earnedAchievements.length > 0) {
-    const achievementHTML = state.earnedAchievements.map(id => {
-      const ach = ACHIEVEMENTS[id];
-      return `<div class="achievement"><div class="achievement-name">🏆 ${ach.name}</div><div class="achievement-desc">${ach.desc}</div></div>`;
-    }).join("");
-    const achievementsDiv = document.createElement("div");
-    achievementsDiv.className = "achievements-earned";
-    achievementsDiv.innerHTML = achievementHTML;
-    el.cardEnd.insertBefore(achievementsDiv, el.cardEnd.querySelector(".scoreline"));
-  }
+
+  const unlocked = loadUnlockedAchievements();
+  const totalAchievements = Object.keys(ACHIEVEMENTS).length;
+  // Newly unlocked this round = earned now but not owned before the round started.
+  const newlyUnlocked = state.earnedAchievements.filter(
+    (id) => !state.previouslyUnlocked.includes(id)
+  );
+
+  const achievementsDiv = document.createElement("div");
+  achievementsDiv.className = "achievements-earned";
+  let achHTML = `<div class="achievement-progress">🏆 ${unlocked.length} / ${totalAchievements} achievements unlocked</div>`;
+  achHTML += newlyUnlocked.map((id) => {
+    const ach = ACHIEVEMENTS[id];
+    return `<div class="achievement"><div class="achievement-name">${ach.name} <span class="achievement-new">NEW</span></div><div class="achievement-desc">${ach.desc}</div></div>`;
+  }).join("");
+  achievementsDiv.innerHTML = achHTML;
+  el.cardEnd.insertBefore(achievementsDiv, el.cardEnd.querySelector(".scoreline"));
 
   // Populate leaderboard for the mode just played
   const scores = loadScores(mode);
@@ -500,10 +509,32 @@ function updateAccuracyDisplay() {
 }
 
 // ---------- achievements ----------
+// Achievements persist across sessions in localStorage so they represent
+// lasting progression, not just what happened in the current round.
+function loadUnlockedAchievements() {
+  try {
+    const ids = JSON.parse(localStorage.getItem("cutsite-achievements") || "[]");
+    return Array.isArray(ids) ? ids : [];
+  }
+  catch (e) { return []; }
+}
+
+function persistAchievement(achievementId) {
+  try {
+    const ids = loadUnlockedAchievements();
+    if (!ids.includes(achievementId)) {
+      ids.push(achievementId);
+      localStorage.setItem("cutsite-achievements", JSON.stringify(ids));
+    }
+  }
+  catch (e) { /* private mode: skip saving */ }
+}
+
 function unlockAchievement(achievementId) {
   if (!state.earnedAchievements.includes(achievementId)) {
     state.earnedAchievements.push(achievementId);
   }
+  persistAchievement(achievementId);
 }
 
 function checkAchievements() {
