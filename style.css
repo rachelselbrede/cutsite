@@ -214,10 +214,25 @@ body {
 }
 
 /* ---------- DNA helix ---------- */
-.helix { position: relative; padding: 20px 0; }
+.helix { position: relative; padding: 20px 22px; }
+
+/* DNA is antiparallel, and it matters here: the PAM and the protospacer sit on
+   the top strand, while the guide RNA pairs with the bottom one. */
+.polarity {
+  position: absolute;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  opacity: 0.8;
+}
+.polarity-tl { left: 0;  top: 24px; }
+.polarity-tr { right: 0; top: 24px; }
+.polarity-bl { left: 0;  bottom: 24px; }
+.polarity-br { right: 0; bottom: 24px; }
 .backbone {
   position: absolute;
-  left: 0; right: 0;
+  left: 22px; right: 22px;
   height: 3px;
   border-radius: 3px;
   background: linear-gradient(90deg, rgba(51,80,127,0), #33507f, rgba(51,80,127,0));
@@ -280,16 +295,43 @@ body {
   50% { box-shadow: 0 0 18px 3px var(--glow-soft); }
 }
 
-/* PAM tag under the last two target bases */
-.col.pam::after {
+/* The PAM motif: all three bases tinted, but only the middle one carries the
+   label, centred so it reads as one tag across NGG rather than once per base. */
+.col.pam { background: rgba(255, 178, 77, 0.12); }
+.col.pam-label::after {
   content: "PAM";
   position: absolute;
   bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: "JetBrains Mono", monospace;
   font-size: 0.52rem;
   letter-spacing: 0.12em;
   color: var(--cas9);
   white-space: nowrap;
+}
+
+/* The scissile position: a blunt break 3 bp upstream of the PAM. The line sits
+   on the leading edge of the base immediately 3' of where the duplex parts. */
+.col.cut-site::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    180deg, var(--cas9) 0 4px, transparent 4px 7px);
+  opacity: 0.75;
+}
+/* the moment the duplex parts: the line snaps bright and square */
+.col.breaking::before {
+  animation: dsb 0.4s ease forwards;
+}
+@keyframes dsb {
+  0%   { background: #ffffff; opacity: 1; width: 3px; left: -1.5px; }
+  100% { background: var(--cas9); opacity: 0; width: 3px; left: -1.5px; }
 }
 
 /* an off-target cut: the column recoils red instead of flashing white */

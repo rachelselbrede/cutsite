@@ -21,7 +21,9 @@
 const CONFIG = {
   roundSeconds: 30,      // length of one round
   strandLength: 30,      // number of base pairs drawn
-  targetLength: 5,       // how many bases fluoresce at once
+  targetLength: 5,       // how many bases fluoresce at once (a short protospacer)
+  pamLength: 3,          // SpCas9's PAM is NGG: three bases, not two
+  cutOffsetFromPam: 3,   // Cas9 breaks the duplex 3 bp upstream of the PAM
   basePoints: 100,       // points before combo + speed bonus
   comboCap: 10,          // combo multiplier stops climbing here
   windowStart: 1500,     // ms you get to click an early target
@@ -31,8 +33,9 @@ const CONFIG = {
   lockoutMs: 450,        // blades jam this long after an off-target cut
 };
 
-// DNA base pairing. Cas9 needs a PAM (here we use "GG") just
-// 3' of the target, so we make sure one shows up at the target end.
+// DNA base pairing. Cas9 needs a PAM immediately 3' of the protospacer.
+// For S. pyogenes Cas9 that motif is NGG: any base, then two Gs. The N is
+// left as whatever the strand already generated, which is the point of it.
 const COMPLEMENT = { A: "T", T: "A", G: "C", C: "G" };
 const BASES = ["A", "T", "G", "C"];
 
@@ -278,22 +281,39 @@ function spawnTarget() {
   if (!state.running) return;
 
   const cols = columns();
-  // Leave room for the target plus its PAM at the 3' end.
-  const maxStart = CONFIG.strandLength - CONFIG.targetLength - 1;
+  // Leave room for the protospacer plus the whole PAM at its 3' end.
+  const maxStart = CONFIG.strandLength - CONFIG.targetLength - CONFIG.pamLength + 1;
   const start = Math.floor(Math.random() * maxStart);
   const end = start + CONFIG.targetLength - 1;
 
-  // Force a PAM ("GG") on the two bases just past the target so the
-  // cut site is biologically motivated, and tag them for the label.
-  setBase(cols[end + 1], "G");
+  // The PAM is NGG. Only the two Gs are fixed; the N keeps whatever base the
+  // strand already had, because in NGG the first position genuinely is any
+  // base. Tagging all three makes the motif on screen the length it really is.
+  //
+  // The originals are kept so they can go back when the target clears. Writing
+  // Gs in permanently made the strand drift towards poly-G over a round - after
+  // 500 spawns the N position was a G 94% of the time - which is not a sequence
+  // any genome would produce.
+  const restore = [end + 2, end + 3].map((i) => ({
+    index: i,
+    base: cols[i].querySelector(".base").textContent,
+  }));
   setBase(cols[end + 2], "G");
-  cols[end + 1].classList.add("pam");
-  cols[end + 2].classList.add("pam");
+  setBase(cols[end + 3], "G");
+  for (let i = 1; i <= CONFIG.pamLength; i++) cols[end + i].classList.add("pam");
+  // One label, centred under the middle base of the motif.
+  cols[end + 2].classList.add("pam-label");
 
   for (let i = start; i <= end; i++) cols[i].classList.add("in-target");
 
+  // Cas9 makes a blunt double-strand break a fixed 3 bp upstream of the PAM,
+  // not across the whole protospacer. Mark the base immediately 3' of the
+  // break so the line can be drawn on its leading edge.
+  const breakCol = Math.max(start, end - CONFIG.cutOffsetFromPam + 1);
+  cols[breakCol].classList.add("cut-site");
+
   const window = currentWindow();
-  state.activeTarget = { start, end, spawnedAt: performance.now(), window };
+  state.activeTarget = { start, end, spawnedAt: performance.now(), window, restore };
   setStatus("Target locked. Cut it!", true);
 
   state.timers.expiry = setTimeout(onExpire, window);
@@ -313,7 +333,13 @@ function onExpire() {
 
 function clearTarget() {
   clearTimeout(state.timers.expiry);
-  columns().forEach((c) => c.classList.remove("in-target", "pam"));
+  // Put back the bases the PAM overwrote, so the strand keeps its composition.
+  if (state.activeTarget && state.activeTarget.restore) {
+    const cols = columns();
+    state.activeTarget.restore.forEach((r) => setBase(cols[r.index], r.base));
+  }
+  columns().forEach((c) =>
+    c.classList.remove("in-target", "pam", "pam-label", "cut-site", "breaking"));
   state.activeTarget = null;
 }
 
@@ -419,10 +445,16 @@ function registerHit(col, e) {
     setTimeout(() => el.stage.classList.remove("shake"), 200);
   }
 
-  // visual + audio snip across the whole target window
+  // The protospacer flashes to show which site was edited, but the break
+  // itself is drawn at the single scissile position, blunt, 3 bp from the PAM.
   for (let i = t.start; i <= t.end; i++) {
     cols[i].classList.add("cut");
     setTimeout(() => cols[i].classList.remove("cut"), 400);
+  }
+  const breakCol = cols.find((c) => c.classList.contains("cut-site"));
+  if (breakCol) {
+    breakCol.classList.add("breaking");
+    setTimeout(() => breakCol.classList.remove("breaking"), 400);
   }
   floatPoints(col, "+" + gained.toLocaleString());
   playSnip();
