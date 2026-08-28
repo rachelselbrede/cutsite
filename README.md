@@ -28,6 +28,11 @@ CRISPR-Cas9 is a real gene-editing system. The short version of how it cuts:
 - When the guide matches and a PAM sits right beside it, Cas9 makes a
   double-strand break just upstream of the PAM.
 
+Cas9's biggest real-world problem is the **off-target cut**: the enzyme snips a
+site that only partly matches the guide. The game charges you for that too. Cut
+anywhere other than the fluorescing window and you lose your combo and the blades
+jam briefly, so accuracy matters as much as speed.
+
 This game keeps those ideas and simplifies the rest:
 
 - The DNA is drawn as base pairs, and the pairing is correct: A always sits
@@ -53,9 +58,8 @@ easy to read and extend.
 
 - A **guide RNA** you have to match: show a target sequence and only score cuts
   at the correct spot.
-- **Off-target** sites that look similar but should not be cut, with a penalty
-  for cutting them (this is a real CRISPR problem).
 - Difficulty levels, a longer genome that scrolls, or a two-player mode.
+- Decoy sites that *look* like valid targets but carry a mismatched PAM.
 
 ## Credits
 
@@ -67,4 +71,6 @@ Made by Rachel Selbrede as a portfolio project. Feedback and pull requests welco
 - **Zen Mode**: Endless practice mode for relaxation  
 - **Leaderboard**: Track your top 10 scores with persistent browser storage
 - **Visual Feedback**: Screen shake on perfect hits, particle burst effects, combo bonuses
+- **Off-target penalty**: Cutting plain DNA resets your combo and jams the blades
+  for a moment, so precision beats spraying clicks
 - **Authentic CRISPR**: Accurate base pairing (A-T, G-C) and PAM site placement

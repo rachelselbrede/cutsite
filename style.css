@@ -61,6 +61,16 @@ body {
 .scissors .blade { transform-origin: 6px 16px; transition: transform 90ms ease; }
 .scissors.snip .blade-top    { transform: rotate(11deg); }
 .scissors.snip .blade-bottom { transform: rotate(-11deg); }
+/* blades jammed after an off-target cut: stuck open and red until they free up */
+.scissors.jammed { color: var(--danger); animation: jamShudder 0.45s ease; }
+.scissors.jammed .blade-top    { transform: rotate(-14deg); }
+.scissors.jammed .blade-bottom { transform: rotate(14deg); }
+@keyframes jamShudder {
+  0%, 100% { margin-left: 0; }
+  20% { margin-left: -3px; }
+  50% { margin-left: 3px; }
+  80% { margin-left: -2px; }
+}
 
 /* ---------- layout ---------- */
 .app {
@@ -263,6 +273,16 @@ body {
   white-space: nowrap;
 }
 
+/* an off-target cut: the column recoils red instead of flashing white */
+.col.off-target {
+  animation: offtargetflash 0.45s ease forwards;
+}
+@keyframes offtargetflash {
+  0%   { background: var(--danger); transform: translateY(3px); }
+  40%  { background: rgba(255,107,107,0.35); transform: translateY(0); }
+  100% { background: transparent; transform: translateY(0); }
+}
+
 /* the moment of the cut */
 .col.cut {
   animation: cutflash 0.4s ease forwards;
@@ -372,6 +392,7 @@ body {
   font-size: 1.8rem;
   color: var(--glow);
 }
+.scoreline-num.scoreline-warn { color: var(--danger); }
 .scoreline-lbl {
   font-size: 0.68rem;
   text-transform: uppercase;
@@ -379,6 +400,14 @@ body {
   color: var(--muted);
 }
 .end-note { min-height: 1.2em; }
+.card-warn {
+  border-left: 2px solid var(--danger);
+  padding-left: 12px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.card-warn b { color: var(--danger); }
 
 /* ---------- footer ---------- */
 .foot {
@@ -401,6 +430,9 @@ body {
   .col.in-target { animation: none; }
   .col.in-target .base { box-shadow: 0 0 14px 3px var(--glow-soft); }
   .pop { animation-duration: 0.01s; }
+  /* keep the red colour cue for a bad cut, drop the movement */
+  .scissors.jammed { animation: none; }
+  .col.off-target { animation: none; background: rgba(255,107,107,0.35); }
 }
 
 /* ---------- mode selector ---------- */

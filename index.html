@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=6" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -77,6 +77,10 @@
             the signal Cas9 uses to know where to cut. Click the glowing target
             as fast as you can. Speed and streaks multiply your score.
           </p>
+          <p class="card-warn">
+            Cut anywhere else and it counts as an <b>off-target</b> edit: your combo
+            resets and the blades jam for a moment. Aim, do not spray.
+          </p>
           <div class="mode-selector">
             <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
             <button class="mode-btn" data-mode="zen">Zen (endless)</button>
@@ -88,8 +92,10 @@
         <div class="card hidden" id="card-end">
           <h2 id="end-title">Round complete</h2>
           <div class="scoreline">
+            <div><span class="scoreline-num" id="final-score">0</span><span class="scoreline-lbl">score</span></div>
             <div><span class="scoreline-num" id="final-cuts">0</span><span class="scoreline-lbl">cuts</span></div>
             <div><span class="scoreline-num" id="final-acc">0%</span><span class="scoreline-lbl">accuracy</span></div>
+            <div><span class="scoreline-num scoreline-warn" id="final-off">0</span><span class="scoreline-lbl">off&#8209;target</span></div>
           </div>
           <div id="leaderboard" class="leaderboard"></div>
           <p id="end-note" class="end-note"></p>
@@ -99,10 +105,10 @@
     </section>
 
     <footer class="foot">
-      <span>A-T and G-C pairs are generated correctly. The cut fires just upstream of the PAM, the way Cas9 really works.</span>
+      <span>A-T and G-C pairs are generated correctly. The cut fires just upstream of the PAM, the way Cas9 really works &mdash; and off-target cuts cost you, the way they do in a real lab.</span>
     </footer>
   </main>
 
-  <script src="script.js?v=5"></script>
+  <script src="script.js?v=6"></script>
 </body>
 </html>

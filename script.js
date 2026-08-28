@@ -8,6 +8,9 @@
      3. You click the glow before its timer runs out.
         - A fast click scores more and builds your combo.
         - Letting it expire breaks the combo.
+        - Cutting plain DNA is an OFF-TARGET cut: it breaks the
+          combo and jams the blades for a moment, so spraying
+          clicks across the strand costs you the round.
      4. After 30 seconds (classic) or unlimited time (zen)
         the round ends and your score is saved in the browser.
    The code is grouped into: config, state, setup, the DNA
@@ -25,6 +28,7 @@ const CONFIG = {
   windowMin: 650,        // ms window once you are fully warmed up
   gapAfterHit: 420,      // pause before the next target appears
   gapAfterMiss: 650,
+  lockoutMs: 450,        // blades jam this long after an off-target cut
 };
 
 // DNA base pairing. Cas9 needs a PAM (here we use "GG") just
@@ -48,6 +52,8 @@ const state = {
   previouslyUnlocked: [], // achievements already unlocked before this round (from storage)
   maxCombo: 1,
   consecutivePerfects: 0,
+  offTargets: 0,        // stray cuts on non-target DNA this round
+  lockedUntil: 0,       // performance.now() timestamp the blades free up
 };
 
 // ---------- 1.5. ACHIEVEMENTS ----------
@@ -57,6 +63,7 @@ const ACHIEVEMENTS = {
   speedDemon: { id: 'speedDemon', name: 'Speed Demon', desc: 'Score 500+ points on a single cut' },
   flawless: { id: 'flawless', name: 'Flawless', desc: '3 consecutive perfect hits' },
   perfect: { id: 'perfect', name: 'Precision', desc: 'Achieve 90%+ accuracy' },
+  onTarget: { id: 'onTarget', name: 'On Target', desc: 'Finish a round with 10+ cuts and zero off-target snips' },
 };
 
 // ---------- 3. DOM + SETUP ----------
@@ -76,8 +83,10 @@ const el = {
   againBtn: document.getElementById("again-btn"),
   muteBtn: document.getElementById("mute-btn"),
   stopBtn: document.getElementById("stop-btn"),
+  finalScore: document.getElementById("final-score"),
   finalCuts: document.getElementById("final-cuts"),
   finalAcc: document.getElementById("final-acc"),
+  finalOff: document.getElementById("final-off"),
   leaderboard: document.getElementById("leaderboard"),
   endTitle: document.getElementById("end-title"),
   endNote: document.getElementById("end-note"),
@@ -159,6 +168,8 @@ function startGame() {
   state.previouslyUnlocked = loadUnlockedAchievements();
   state.maxCombo = 1;
   state.consecutivePerfects = 0;
+  state.offTargets = 0;
+  state.lockedUntil = 0;
 
   el.score.textContent = "0";
   el.combo.textContent = "\u00d71";
@@ -216,8 +227,10 @@ function endGame() {
   // Check for achievements
   checkAchievements();
 
+  if (el.finalScore) el.finalScore.textContent = state.score.toLocaleString();
   el.finalCuts.textContent = state.cuts;
   el.finalAcc.textContent = accuracy + "%";
+  if (el.finalOff) el.finalOff.textContent = state.offTargets;
   el.endTitle.textContent = isRecord ? "New personal best" : "Round complete";
   el.endNote.textContent = endMessage(state.cuts, accuracy, isRecord);
 
@@ -292,6 +305,7 @@ function onExpire() {
   state.combo = 1;
   el.combo.textContent = "\u00d71";
   state.misses++;
+  state.consecutivePerfects = 0;
   updateAccuracyDisplay();
   setStatus("The site got away. Combo reset.", false);
   scheduleSpawn(CONFIG.gapAfterMiss);
@@ -305,17 +319,49 @@ function clearTarget() {
 
 // ---------- 7. CLICKS + SCORING ----------
 function handleStrandClick(e) {
-  if (!state.running || !state.activeTarget) return;
+  if (!state.running) return;
 
   const col = e.target.closest(".col");
-  const hit = col && col.classList.contains("in-target");
+  if (!col) return;
 
-  if (hit) {
+  // Blades are still jammed from the last bad cut: this click does nothing.
+  if (performance.now() < state.lockedUntil) return;
+
+  if (!state.activeTarget) {
+    // No guide match yet, so there is nothing legitimate to cut here.
+    registerOffTarget(col, "Cut before the guide matched. Blades jammed.");
+    return;
+  }
+
+  if (col.classList.contains("in-target")) {
     registerHit(col, e);
   } else {
-    // A stray snip on plain DNA. Kept gentle: no combo loss.
-    setStatus("Missed the strand. No damage done.", false);
+    registerOffTarget(col, "Off-target cut. Combo lost, blades jammed.");
   }
+}
+
+// Off-target cutting is the real-world failure mode of CRISPR, so the game
+// charges for it: the combo resets, accuracy drops, and the blades jam for
+// a moment. That jam is what makes spraying clicks across the strand a
+// losing strategy rather than a free way to catch every target instantly.
+function registerOffTarget(col, message) {
+  state.misses++;
+  state.offTargets++;
+  state.combo = 1;
+  state.consecutivePerfects = 0;
+  state.lockedUntil = performance.now() + CONFIG.lockoutMs;
+
+  el.combo.textContent = "\u00d71";
+  bump(el.combo);
+  updateAccuracyDisplay();
+  setStatus(message, false);
+
+  col.classList.add("off-target");
+  setTimeout(() => col.classList.remove("off-target"), CONFIG.lockoutMs);
+  el.scissors.classList.add("jammed");
+  setTimeout(() => el.scissors.classList.remove("jammed"), CONFIG.lockoutMs);
+
+  playJam();
 }
 
 function registerHit(col, e) {
@@ -417,6 +463,27 @@ function playSnip() {
   }
 }
 
+// A dull thunk for a bad cut, deliberately unlike the bright snip.
+function playJam() {
+  if (state.muted) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(160, now);
+    osc.frequency.exponentialRampToValueAtTime(60, now + 0.18);
+    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.21);
+  } catch (err) {
+    /* audio is a nice-to-have; ignore if the browser blocks it */
+  }
+}
+
 function toggleMute() {
   state.muted = !state.muted;
   el.muteBtn.textContent = state.muted ? "Sound: off" : "Sound: on";
@@ -478,6 +545,7 @@ function moveScissors(e) {
 
 function snipScissors() {
   if (!state.running) return;
+  if (performance.now() < state.lockedUntil) return; // jammed: no snip animation
   el.scissors.classList.add("snip");
   setTimeout(() => el.scissors.classList.remove("snip"), 110);
 }
@@ -491,6 +559,7 @@ function clearTimers() {
 function endMessage(cuts, acc, record) {
   if (record) return "Sharpest editing yet. Cas9 would be proud.";
   if (cuts === 0) return "The glow is your cue. Click it the instant it lights up.";
+  if (state.offTargets > cuts) return "Too many off-target cuts. Wait for the glow instead of clicking through it.";
   if (acc >= 90) return "Surgical precision. Try chaining longer combos next.";
   if (acc >= 60) return "Solid work. A little faster and the multiplier climbs.";
   return "Keep an eye on the PAM. That is where the cut lands.";
@@ -550,6 +619,11 @@ function checkAchievements() {
   // Achievement: Precision (90%+ accuracy)
   if (accuracy >= 90 && state.cuts >= 5) {
     unlockAchievement('perfect');
+  }
+
+  // Achievement: On Target (a full round without a single stray snip)
+  if (state.cuts >= 10 && state.offTargets === 0) {
+    unlockAchievement('onTarget');
   }
 }
 
