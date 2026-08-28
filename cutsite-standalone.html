@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!--
+  GENERATED FILE - do not edit by hand.
+  Built from index.html + style.css + script.js by build-standalone.py.
+  Any edit here is lost on the next build; change the source files instead.
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -59,7 +64,6 @@ body {
 /* ---------- custom scissors cursor ---------- */
 .scissors {
   position: fixed;
-  top: 0; left: 0;
   color: var(--cas9);
   pointer-events: none;
   transform: translate(-50%, -50%);
@@ -72,6 +76,16 @@ body {
 .scissors .blade { transform-origin: 6px 16px; transition: transform 90ms ease; }
 .scissors.snip .blade-top    { transform: rotate(11deg); }
 .scissors.snip .blade-bottom { transform: rotate(-11deg); }
+/* blades jammed after an off-target cut: stuck open and red until they free up */
+.scissors.jammed { color: var(--danger); animation: jamShudder 0.45s ease; }
+.scissors.jammed .blade-top    { transform: rotate(-14deg); }
+.scissors.jammed .blade-bottom { transform: rotate(14deg); }
+@keyframes jamShudder {
+  0%, 100% { margin-left: 0; }
+  20% { margin-left: -3px; }
+  50% { margin-left: 3px; }
+  80% { margin-left: -2px; }
+}
 
 /* ---------- layout ---------- */
 .app {
@@ -129,6 +143,11 @@ body {
   font-variant-numeric: tabular-nums;
 }
 #time.low { color: var(--danger); }
+#difficulty {
+  transition: color 0.3s ease;
+}
+#difficulty[data-level="high"] { color: var(--danger); }
+#difficulty[data-level="med"] { color: var(--cas9); }
 .stat-value.bump { animation: bump 0.28s ease; }
 @keyframes bump {
   0% { transform: scale(1); }
@@ -144,8 +163,18 @@ body {
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
   padding: 30px 22px 34px;
-  min-height: 260px;
+  min-height: 340px;
   overflow: hidden;
+  transition: transform 0.08s ease;
+}
+.stage.shake {
+  animation: shake 0.2s ease;
+}
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-2px, -1px); }
+  50% { transform: translate(2px, 1px); }
+  75% { transform: translate(-1px, 2px); }
 }
 .stage::before {
   /* faint imaging-grid texture */
@@ -168,6 +197,17 @@ body {
   min-height: 1.2em;
 }
 .status.hot { color: var(--glow); }
+.accuracy-display {
+  position: relative;
+  text-align: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 18px;
+  min-height: 1em;
+  transition: color 0.2s ease;
+}
 
 /* ---------- DNA helix ---------- */
 .helix { position: relative; padding: 20px 0; }
@@ -248,6 +288,16 @@ body {
   white-space: nowrap;
 }
 
+/* an off-target cut: the column recoils red instead of flashing white */
+.col.off-target {
+  animation: offtargetflash 0.45s ease forwards;
+}
+@keyframes offtargetflash {
+  0%   { background: var(--danger); transform: translateY(3px); }
+  40%  { background: rgba(255,107,107,0.35); transform: translateY(0); }
+  100% { background: transparent; transform: translateY(0); }
+}
+
 /* the moment of the cut */
 .col.cut {
   animation: cutflash 0.4s ease forwards;
@@ -275,6 +325,22 @@ body {
   100% { opacity: 0; transform: translate(-50%, -30px); }
 }
 
+/* particle burst on cut */
+.particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--glow);
+  pointer-events: none;
+  animation: burst 0.6s ease forwards;
+  box-shadow: 0 0 8px var(--glow);
+}
+@keyframes burst {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--vx, 0)), calc(-50% + var(--vy, 0))) scale(0); }
+}
+
 /* ---------- overlay ---------- */
 .overlay {
   position: absolute;
@@ -287,16 +353,16 @@ body {
 }
 .overlay.hidden { display: none; }
 .card {
-  width: min(440px, 92%);
+  width: min(460px, 95%);
   text-align: center;
   background: linear-gradient(180deg, var(--panel), var(--bg-2));
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
-  padding: 26px 24px;
+  padding: 16px 12px;
 }
 .card.hidden { display: none; }
-.card h2 { margin: 0 0 10px; font-size: 1.4rem; }
-.card p { color: var(--muted); font-size: 0.95rem; line-height: 1.55; margin: 0 0 20px; }
+.card h2 { margin: 0 0 8px; font-size: 1.3rem; }
+.card p { color: var(--muted); font-size: 0.92rem; line-height: 1.45; margin: 0 0 14px; }
 .card b { color: var(--glow); font-weight: 700; }
 
 .btn {
@@ -341,6 +407,7 @@ body {
   font-size: 1.8rem;
   color: var(--glow);
 }
+.scoreline-num.scoreline-warn { color: var(--danger); }
 .scoreline-lbl {
   font-size: 0.68rem;
   text-transform: uppercase;
@@ -348,6 +415,14 @@ body {
   color: var(--muted);
 }
 .end-note { min-height: 1.2em; }
+.card-warn {
+  border-left: 2px solid var(--danger);
+  padding-left: 12px;
+  text-align: left;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+.card-warn b { color: var(--danger); }
 
 /* ---------- footer ---------- */
 .foot {
@@ -370,23 +445,147 @@ body {
   .col.in-target { animation: none; }
   .col.in-target .base { box-shadow: 0 0 14px 3px var(--glow-soft); }
   .pop { animation-duration: 0.01s; }
+  /* keep the red colour cue for a bad cut, drop the movement */
+  .scissors.jammed { animation: none; }
+  .col.off-target { animation: none; background: rgba(255,107,107,0.35); }
 }
 
-</style>
+/* ---------- mode selector ---------- */
+.mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.mode-btn {
+  width: 100%;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.mode-btn:hover {
+  color: var(--ink);
+  border-color: var(--glow-soft);
+}
+.mode-btn.selected {
+  background: var(--glow-soft);
+  color: var(--ink);
+  border-color: var(--glow);
+}
+
+/* ---------- leaderboard ---------- */
+.leaderboard {
+  margin: 12px 0 16px;
+  padding: 0;
+}
+.leaderboard-title {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.leaderboard ol {
+  list-style-position: inside;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  color: var(--glow);
+}
+.leaderboard li {
+  padding: 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- achievements ---------- */
+.achievements-earned {
+  margin: 16px 0;
+  padding: 12px;
+  background: rgba(46, 230, 200, 0.1);
+  border: 1px solid var(--glow-soft);
+  border-radius: 10px;
+}
+
+.achievement-progress {
+  text-align: center;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--glow);
+  padding-bottom: 4px;
+}
+
+.achievement {
+  padding: 8px 0;
+  text-align: center;
+}
+
+.achievement-new {
+  display: inline-block;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #06101f;
+  background: var(--cas9);
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.achievement-name {
+  font-weight: 700;
+  color: var(--glow);
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+
+.achievement-desc {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* ---------- utility classes ---------- */
+.hidden {
+  display: none !important;
+}
+
+/* ---------- stop button positioning ---------- */
+#stop-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 51;
+}
+  </style>
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
   <div class="scissors" id="scissors" aria-hidden="true">
     <svg viewBox="0 0 32 32" width="34" height="34">
+      <!-- Left handle and blade -->
       <g class="blade blade-top">
-        <circle cx="6" cy="7" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/>
-        <line x1="8.6" y1="9" x2="27" y2="16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="7" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M 9.5 10.5 L 20 6 L 22 8 L 16 16 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
       </g>
+      <!-- Right handle and blade -->
       <g class="blade blade-bottom">
-        <circle cx="6" cy="25" r="3.4" fill="none" stroke="currentColor" stroke-width="2.2"/>
-        <line x1="8.6" y1="23" x2="27" y2="16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="7" cy="24" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M 9.5 21.5 L 20 26 L 22 24 L 16 16 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
       </g>
-      <circle cx="16" cy="16" r="1.6" fill="currentColor"/>
+      <!-- Center pivot -->
+      <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
     </svg>
   </div>
 
@@ -410,16 +609,17 @@ body {
       </div>
       <div class="stat">
         <span class="stat-label">Time</span>
-        <span class="stat-value" id="time">60</span>
+        <span class="stat-value" id="time">30</span>
       </div>
       <div class="stat">
-        <span class="stat-label">Best</span>
-        <span class="stat-value" id="best">0</span>
+        <span class="stat-label">Difficulty</span>
+        <span class="stat-value" id="difficulty">0%</span>
       </div>
     </section>
 
     <section class="stage" id="stage">
       <div class="status" id="status">Load a guide RNA to begin</div>
+      <div class="accuracy-display" id="accuracy-display">Accuracy: —</div>
 
       <!-- The DNA double helix. Columns are injected by script.js -->
       <div class="helix" id="helix">
@@ -430,6 +630,7 @@ body {
 
       <!-- Start / game-over overlay -->
       <div class="overlay" id="overlay">
+        <button class="btn hidden" id="stop-btn">Stop Editing</button>
         <div class="card" id="card-start">
           <h2>Ready to edit a genome?</h2>
           <p>
@@ -437,7 +638,15 @@ body {
             the signal Cas9 uses to know where to cut. Click the glowing target
             as fast as you can. Speed and streaks multiply your score.
           </p>
-          <button class="btn" id="start-btn">Start editing</button>
+          <p class="card-warn">
+            Cut anywhere else and it counts as an <b>off-target</b> edit: your combo
+            resets and the blades jam for a moment. Aim, do not spray.
+          </p>
+          <div class="mode-selector">
+            <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
+            <button class="mode-btn" data-mode="zen">Zen (endless)</button>
+          </div>
+          <button class="btn" id="start-btn" onclick="startGame()">Start editing</button>
           <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
         </div>
 
@@ -447,15 +656,17 @@ body {
             <div><span class="scoreline-num" id="final-score">0</span><span class="scoreline-lbl">score</span></div>
             <div><span class="scoreline-num" id="final-cuts">0</span><span class="scoreline-lbl">cuts</span></div>
             <div><span class="scoreline-num" id="final-acc">0%</span><span class="scoreline-lbl">accuracy</span></div>
+            <div><span class="scoreline-num scoreline-warn" id="final-off">0</span><span class="scoreline-lbl">off&#8209;target</span></div>
           </div>
+          <div id="leaderboard" class="leaderboard"></div>
           <p id="end-note" class="end-note"></p>
-          <button class="btn" id="again-btn">Edit again</button>
+          <button class="btn" id="again-btn" onclick="startGame()">Edit again</button>
         </div>
       </div>
     </section>
 
     <footer class="foot">
-      <span>A-T and G-C pairs are generated correctly. The cut fires just upstream of the PAM, the way Cas9 really works.</span>
+      <span>A-T and G-C pairs are generated correctly. The cut fires just upstream of the PAM, the way Cas9 really works &mdash; and off-target cuts cost you, the way they do in a real lab.</span>
     </footer>
   </main>
 
@@ -470,15 +681,18 @@ body {
      3. You click the glow before its timer runs out.
         - A fast click scores more and builds your combo.
         - Letting it expire breaks the combo.
-     4. After 60 seconds the round ends and your best score
-        is saved in the browser.
+        - Cutting plain DNA is an OFF-TARGET cut: it breaks the
+          combo and jams the blades for a moment, so spraying
+          clicks across the strand costs you the round.
+     4. After 30 seconds (classic) or unlimited time (zen)
+        the round ends and your score is saved in the browser.
    The code is grouped into: config, state, setup, the DNA
-   strand, the target loop, scoring, sound, and helpers.
+   strand, the target loop, scoring, achievements, sound, and helpers.
    ============================================================ */
 
 // ---------- 1. CONFIG ----------
 const CONFIG = {
-  roundSeconds: 60,      // length of one round
+  roundSeconds: 30,      // length of one round
   strandLength: 30,      // number of base pairs drawn
   targetLength: 5,       // how many bases fluoresce at once
   basePoints: 100,       // points before combo + speed bonus
@@ -487,6 +701,7 @@ const CONFIG = {
   windowMin: 650,        // ms window once you are fully warmed up
   gapAfterHit: 420,      // pause before the next target appears
   gapAfterMiss: 650,
+  lockoutMs: 450,        // blades jam this long after an off-target cut
 };
 
 // DNA base pairing. Cas9 needs a PAM (here we use "GG") just
@@ -505,6 +720,23 @@ const state = {
   activeTarget: null,   // { start, end, spawnedAt, window, expiry }
   timers: { round: null, spawn: null, expiry: null },
   muted: false,
+  gameMode: 'classic',  // 'classic' or 'zen'
+  earnedAchievements: [], // achievements earned this round
+  previouslyUnlocked: [], // achievements already unlocked before this round (from storage)
+  maxCombo: 1,
+  consecutivePerfects: 0,
+  offTargets: 0,        // stray cuts on non-target DNA this round
+  lockedUntil: 0,       // performance.now() timestamp the blades free up
+};
+
+// ---------- 1.5. ACHIEVEMENTS ----------
+const ACHIEVEMENTS = {
+  firstBlood: { id: 'firstBlood', name: 'First Blood', desc: 'Make your first cut' },
+  comboMaster: { id: 'comboMaster', name: 'Combo Master', desc: 'Reach a 10+ combo streak' },
+  speedDemon: { id: 'speedDemon', name: 'Speed Demon', desc: 'Score 500+ points on a single cut' },
+  flawless: { id: 'flawless', name: 'Flawless', desc: '3 consecutive perfect hits' },
+  perfect: { id: 'perfect', name: 'Precision', desc: 'Achieve 90%+ accuracy' },
+  onTarget: { id: 'onTarget', name: 'On Target', desc: 'Finish a round with 10+ cuts and zero off-target snips' },
 };
 
 // ---------- 3. DOM + SETUP ----------
@@ -514,6 +746,8 @@ const el = {
   score: document.getElementById("score"),
   combo: document.getElementById("combo"),
   time: document.getElementById("time"),
+  difficulty: document.getElementById("difficulty"),
+  accuracyDisplay: document.getElementById("accuracy-display"),
   best: document.getElementById("best"),
   overlay: document.getElementById("overlay"),
   cardStart: document.getElementById("card-start"),
@@ -521,20 +755,44 @@ const el = {
   startBtn: document.getElementById("start-btn"),
   againBtn: document.getElementById("again-btn"),
   muteBtn: document.getElementById("mute-btn"),
+  stopBtn: document.getElementById("stop-btn"),
   finalScore: document.getElementById("final-score"),
   finalCuts: document.getElementById("final-cuts"),
   finalAcc: document.getElementById("final-acc"),
+  finalOff: document.getElementById("final-off"),
+  leaderboard: document.getElementById("leaderboard"),
   endTitle: document.getElementById("end-title"),
   endNote: document.getElementById("end-note"),
   scissors: document.getElementById("scissors"),
   stage: document.getElementById("stage"),
 };
 
-el.best.textContent = loadBest();
+// Initialize scissors position to center
+function initializeScissors() {
+  if (!el.scissors) return;
+  el.scissors.style.left = window.innerWidth / 2 + "px";
+  el.scissors.style.top = window.innerHeight / 2 + "px";
+}
 
-el.startBtn.addEventListener("click", startGame);
-el.againBtn.addEventListener("click", startGame);
-el.muteBtn.addEventListener("click", toggleMute);
+// Call initialization immediately
+initializeScissors();
+
+if (el.best) el.best.textContent = getBestScore(state.gameMode);
+
+// Ensure event listeners are attached after DOM is ready
+if (el.startBtn) el.startBtn.addEventListener("click", startGame);
+if (el.againBtn) el.againBtn.addEventListener("click", startGame);
+if (el.muteBtn) el.muteBtn.addEventListener("click", toggleMute);
+if (el.stopBtn) el.stopBtn.addEventListener("click", endGame);
+
+// Mode selection listeners
+document.querySelectorAll(".mode-btn").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("selected"));
+    e.target.classList.add("selected");
+    state.gameMode = e.target.dataset.mode;
+  });
+});
 
 // A single click handler on the strand decides hit vs miss.
 el.strand.addEventListener("click", handleStrandClick);
@@ -579,23 +837,44 @@ function startGame() {
   state.misses = 0;
   state.timeLeft = CONFIG.roundSeconds;
   state.activeTarget = null;
+  state.earnedAchievements = [];
+  state.previouslyUnlocked = loadUnlockedAchievements();
+  state.maxCombo = 1;
+  state.consecutivePerfects = 0;
+  state.offTargets = 0;
+  state.lockedUntil = 0;
 
   el.score.textContent = "0";
   el.combo.textContent = "\u00d71";
+  el.difficulty.textContent = "0%";
+  el.difficulty.setAttribute("data-level", "low");
   el.time.textContent = CONFIG.roundSeconds;
   el.time.classList.remove("low");
   el.overlay.classList.add("hidden");
   el.scissors.classList.add("active");
+  // Position scissors at center of screen so they're visible immediately
+  initializeScissors();
   el.stage.style.cursor = "none";
   setStatus("Guide RNA loaded. Watch for the glow.", false);
 
-  // countdown
-  state.timers.round = setInterval(() => {
-    state.timeLeft--;
-    el.time.textContent = state.timeLeft;
-    if (state.timeLeft <= 10) el.time.classList.add("low");
-    if (state.timeLeft <= 0) endGame();
-  }, 1000);
+  // Show/hide timer and stop button based on mode
+  if (state.gameMode === 'zen') {
+    el.time.classList.add("hidden");
+    el.stopBtn.classList.remove("hidden");
+  } else {
+    el.time.classList.remove("hidden");
+    el.stopBtn.classList.add("hidden");
+  }
+
+  // countdown (only for classic mode)
+  if (state.gameMode === 'classic') {
+    state.timers.round = setInterval(() => {
+      state.timeLeft--;
+      el.time.textContent = state.timeLeft;
+      if (state.timeLeft <= 10) el.time.classList.add("low");
+      if (state.timeLeft <= 0) endGame();
+    }, 1000);
+  }
 
   scheduleSpawn(600);
 }
@@ -606,21 +885,57 @@ function endGame() {
   clearTarget();
   el.scissors.classList.remove("active");
   el.stage.style.cursor = "";
+  el.stopBtn.classList.add("hidden");
 
-  const best = loadBest();
+  const mode = state.gameMode;
+  const best = getBestScore(mode);
   const isRecord = state.score > best;
-  if (isRecord) saveBest(state.score);
-  el.best.textContent = loadBest();
+  saveScore(state.score, mode);
+  if (el.best) el.best.textContent = getBestScore(mode);
 
   const accuracy = state.cuts + state.misses === 0
     ? 0
     : Math.round((state.cuts / (state.cuts + state.misses)) * 100);
 
-  el.finalScore.textContent = state.score.toLocaleString();
+  // Check for achievements
+  checkAchievements();
+
+  if (el.finalScore) el.finalScore.textContent = state.score.toLocaleString();
   el.finalCuts.textContent = state.cuts;
   el.finalAcc.textContent = accuracy + "%";
+  if (el.finalOff) el.finalOff.textContent = state.offTargets;
   el.endTitle.textContent = isRecord ? "New personal best" : "Round complete";
   el.endNote.textContent = endMessage(state.cuts, accuracy, isRecord);
+
+  // Display achievements (remove any panel left over from a previous round)
+  const staleAchievements = el.cardEnd.querySelector(".achievements-earned");
+  if (staleAchievements) staleAchievements.remove();
+
+  const unlocked = loadUnlockedAchievements();
+  const totalAchievements = Object.keys(ACHIEVEMENTS).length;
+  // Newly unlocked this round = earned now but not owned before the round started.
+  const newlyUnlocked = state.earnedAchievements.filter(
+    (id) => !state.previouslyUnlocked.includes(id)
+  );
+
+  const achievementsDiv = document.createElement("div");
+  achievementsDiv.className = "achievements-earned";
+  let achHTML = `<div class="achievement-progress">🏆 ${unlocked.length} / ${totalAchievements} achievements unlocked</div>`;
+  achHTML += newlyUnlocked.map((id) => {
+    const ach = ACHIEVEMENTS[id];
+    return `<div class="achievement"><div class="achievement-name">${ach.name} <span class="achievement-new">NEW</span></div><div class="achievement-desc">${ach.desc}</div></div>`;
+  }).join("");
+  achievementsDiv.innerHTML = achHTML;
+  el.cardEnd.insertBefore(achievementsDiv, el.cardEnd.querySelector(".scoreline"));
+
+  // Populate leaderboard for the mode just played
+  const scores = loadScores(mode);
+  const boardLabel = mode === "zen" ? "Zen" : "Classic";
+  const leaderboardHTML = scores.slice(0, 10).map((s) =>
+    `<li>${s.toLocaleString()}</li>`
+  ).join("");
+  el.leaderboard.innerHTML =
+    `<div class="leaderboard-title">${boardLabel} — top scores</div><ol>${leaderboardHTML}</ol>`;
 
   el.cardStart.classList.add("hidden");
   el.cardEnd.classList.remove("hidden");
@@ -663,6 +978,8 @@ function onExpire() {
   state.combo = 1;
   el.combo.textContent = "\u00d71";
   state.misses++;
+  state.consecutivePerfects = 0;
+  updateAccuracyDisplay();
   setStatus("The site got away. Combo reset.", false);
   scheduleSpawn(CONFIG.gapAfterMiss);
 }
@@ -675,17 +992,49 @@ function clearTarget() {
 
 // ---------- 7. CLICKS + SCORING ----------
 function handleStrandClick(e) {
-  if (!state.running || !state.activeTarget) return;
+  if (!state.running) return;
 
   const col = e.target.closest(".col");
-  const hit = col && col.classList.contains("in-target");
+  if (!col) return;
 
-  if (hit) {
+  // Blades are still jammed from the last bad cut: this click does nothing.
+  if (performance.now() < state.lockedUntil) return;
+
+  if (!state.activeTarget) {
+    // No guide match yet, so there is nothing legitimate to cut here.
+    registerOffTarget(col, "Cut before the guide matched. Blades jammed.");
+    return;
+  }
+
+  if (col.classList.contains("in-target")) {
     registerHit(col, e);
   } else {
-    // A stray snip on plain DNA. Kept gentle: no combo loss.
-    setStatus("Missed the strand. No damage done.", false);
+    registerOffTarget(col, "Off-target cut. Combo lost, blades jammed.");
   }
+}
+
+// Off-target cutting is the real-world failure mode of CRISPR, so the game
+// charges for it: the combo resets, accuracy drops, and the blades jam for
+// a moment. That jam is what makes spraying clicks across the strand a
+// losing strategy rather than a free way to catch every target instantly.
+function registerOffTarget(col, message) {
+  state.misses++;
+  state.offTargets++;
+  state.combo = 1;
+  state.consecutivePerfects = 0;
+  state.lockedUntil = performance.now() + CONFIG.lockoutMs;
+
+  el.combo.textContent = "\u00d71";
+  bump(el.combo);
+  updateAccuracyDisplay();
+  setStatus(message, false);
+
+  col.classList.add("off-target");
+  setTimeout(() => col.classList.remove("off-target"), CONFIG.lockoutMs);
+  el.scissors.classList.add("jammed");
+  setTimeout(() => el.scissors.classList.remove("jammed"), CONFIG.lockoutMs);
+
+  playJam();
 }
 
 function registerHit(col, e) {
@@ -696,16 +1045,52 @@ function registerHit(col, e) {
   const elapsed = performance.now() - t.spawnedAt;
   const speed = Math.max(0, 1 - elapsed / t.window); // 1 = instant
   const bonus = Math.round(CONFIG.basePoints * speed * 0.6);
-  const gained = (CONFIG.basePoints + bonus) * state.combo;
+  let gained = (CONFIG.basePoints + bonus) * state.combo;
+
+  // combo milestone bonuses (500 extra at 5, 10 combo streaks)
+  if (state.combo > 0 && state.combo % 5 === 0) {
+    gained += 500;
+  }
 
   state.score += gained;
   state.cuts++;
   state.combo = Math.min(CONFIG.comboCap, state.combo + 1);
+  state.maxCombo = Math.max(state.maxCombo, state.combo);
+
+  // Achievement: First Blood
+  if (state.cuts === 1) {
+    unlockAchievement('firstBlood');
+  }
+
+  // Achievement: Speed Demon (500+ on single cut)
+  if (gained >= 500) {
+    unlockAchievement('speedDemon');
+  }
+
+  // Achievement: Flawless (3 consecutive perfect hits)
+  if (speed > 0.8) {
+    state.consecutivePerfects++;
+    if (state.consecutivePerfects >= 3) {
+      unlockAchievement('flawless');
+    }
+  } else {
+    state.consecutivePerfects = 0;
+  }
 
   el.score.textContent = state.score.toLocaleString();
   el.combo.textContent = "\u00d7" + state.combo;
+  const diffLevel = getDifficultyLevel();
+  el.difficulty.textContent = diffLevel + "%";
+  el.difficulty.setAttribute("data-level", diffLevel >= 67 ? "high" : diffLevel >= 34 ? "med" : "low");
+  updateAccuracyDisplay();
   bump(el.score);
   bump(el.combo);
+
+  // screen shake on perfect hits (fast reaction)
+  if (speed > 0.6) {
+    el.stage.classList.add("shake");
+    setTimeout(() => el.stage.classList.remove("shake"), 200);
+  }
 
   // visual + audio snip across the whole target window
   for (let i = t.start; i <= t.end; i++) {
@@ -751,6 +1136,27 @@ function playSnip() {
   }
 }
 
+// A dull thunk for a bad cut, deliberately unlike the bright snip.
+function playJam() {
+  if (state.muted) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(160, now);
+    osc.frequency.exponentialRampToValueAtTime(60, now + 0.18);
+    gain.gain.setValueAtTime(0.09, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.21);
+  } catch (err) {
+    /* audio is a nice-to-have; ignore if the browser blocks it */
+  }
+}
+
 function toggleMute() {
   state.muted = !state.muted;
   el.muteBtn.textContent = state.muted ? "Sound: off" : "Sound: on";
@@ -788,6 +1194,21 @@ function floatPoints(col, text) {
   pop.style.top = rect.top - stageRect.top - 6 + "px";
   el.stage.appendChild(pop);
   setTimeout(() => pop.remove(), 700);
+
+  // particle burst effect
+  for (let i = 0; i < 6; i++) {
+    const particle = document.createElement("div");
+    particle.className = "particle";
+    const angle = (i / 6) * Math.PI * 2;
+    const vx = Math.cos(angle) * 80;
+    const vy = Math.sin(angle) * 80;
+    particle.style.left = (rect.left - stageRect.left + rect.width / 2) + "px";
+    particle.style.top = (rect.top - stageRect.top + rect.height / 2) + "px";
+    particle.style.setProperty("--vx", vx);
+    particle.style.setProperty("--vy", vy);
+    el.stage.appendChild(particle);
+    setTimeout(() => particle.remove(), 600);
+  }
 }
 
 function moveScissors(e) {
@@ -797,6 +1218,7 @@ function moveScissors(e) {
 
 function snipScissors() {
   if (!state.running) return;
+  if (performance.now() < state.lockedUntil) return; // jammed: no snip animation
   el.scissors.classList.add("snip");
   setTimeout(() => el.scissors.classList.remove("snip"), 110);
 }
@@ -810,21 +1232,145 @@ function clearTimers() {
 function endMessage(cuts, acc, record) {
   if (record) return "Sharpest editing yet. Cas9 would be proud.";
   if (cuts === 0) return "The glow is your cue. Click it the instant it lights up.";
+  if (state.offTargets > cuts) return "Too many off-target cuts. Wait for the glow instead of clicking through it.";
   if (acc >= 90) return "Surgical precision. Try chaining longer combos next.";
   if (acc >= 60) return "Solid work. A little faster and the multiplier climbs.";
   return "Keep an eye on the PAM. That is where the cut lands.";
 }
 
-// ---------- best score in the browser ----------
-function loadBest() {
-  try { return Number(localStorage.getItem("cutsite-best") || 0); }
-  catch (e) { return 0; }
+// ---------- accuracy display ----------
+function updateAccuracyDisplay() {
+  if (!state.running) return;
+  const total = state.cuts + state.misses;
+  if (total === 0) {
+    el.accuracyDisplay.textContent = "Accuracy: —";
+  } else {
+    const acc = Math.round((state.cuts / total) * 100);
+    el.accuracyDisplay.textContent = `Accuracy: ${acc}%`;
+  }
 }
-function saveBest(value) {
-  try { localStorage.setItem("cutsite-best", String(value)); }
+
+// ---------- achievements ----------
+// Achievements persist across sessions in localStorage so they represent
+// lasting progression, not just what happened in the current round.
+function loadUnlockedAchievements() {
+  try {
+    const ids = JSON.parse(localStorage.getItem("cutsite-achievements") || "[]");
+    return Array.isArray(ids) ? ids : [];
+  }
+  catch (e) { return []; }
+}
+
+function persistAchievement(achievementId) {
+  try {
+    const ids = loadUnlockedAchievements();
+    if (!ids.includes(achievementId)) {
+      ids.push(achievementId);
+      localStorage.setItem("cutsite-achievements", JSON.stringify(ids));
+    }
+  }
   catch (e) { /* private mode: skip saving */ }
 }
 
-</script>
+function unlockAchievement(achievementId) {
+  if (!state.earnedAchievements.includes(achievementId)) {
+    state.earnedAchievements.push(achievementId);
+  }
+  persistAchievement(achievementId);
+}
+
+function checkAchievements() {
+  const accuracy = state.cuts + state.misses === 0
+    ? 0
+    : Math.round((state.cuts / (state.cuts + state.misses)) * 100);
+
+  // Achievement: Combo Master (10+ combo)
+  if (state.maxCombo >= 10) {
+    unlockAchievement('comboMaster');
+  }
+
+  // Achievement: Precision (90%+ accuracy)
+  if (accuracy >= 90 && state.cuts >= 5) {
+    unlockAchievement('perfect');
+  }
+
+  // Achievement: On Target (a full round without a single stray snip)
+  if (state.cuts >= 10 && state.offTargets === 0) {
+    unlockAchievement('onTarget');
+  }
+}
+
+// ---------- score management in the browser ----------
+// Classic and Zen keep separate boards: Zen is endless, so its scores
+// would otherwise swamp the shared top-10 and bury every Classic run.
+function scoresKey(mode) {
+  return "cutsite-scores-" + (mode === "zen" ? "zen" : "classic");
+}
+
+// One-time migration of the old shared keys into the Classic board.
+// The pre-Zen game was Classic-only, so legacy scores belong there.
+function migrateLegacyScores() {
+  try {
+    const legacyBest = localStorage.getItem("cutsite-best");
+    const legacyScores = localStorage.getItem("cutsite-scores");
+    if (!legacyBest && !legacyScores) return;
+
+    const migrated = [];
+    if (legacyScores) {
+      const parsed = JSON.parse(legacyScores);
+      if (Array.isArray(parsed)) parsed.forEach((s) => migrated.push(Number(s)));
+    }
+    if (legacyBest) migrated.push(Number(legacyBest));
+
+    const existing = JSON.parse(localStorage.getItem(scoresKey("classic")) || "[]");
+    const combined = existing.concat(migrated)
+      .filter((n) => Number.isFinite(n))
+      .sort((a, b) => b - a)
+      .slice(0, 10);
+    localStorage.setItem(scoresKey("classic"), JSON.stringify(combined));
+    localStorage.removeItem("cutsite-best");
+    localStorage.removeItem("cutsite-scores");
+  }
+  catch (e) { /* ignore migration failures */ }
+}
+
+function loadScores(mode) {
+  try {
+    migrateLegacyScores();
+    const scores = JSON.parse(localStorage.getItem(scoresKey(mode)) || "[]");
+    return Array.isArray(scores) ? scores : [];
+  }
+  catch (e) { return []; }
+}
+
+function saveScore(value, mode) {
+  try {
+    const scores = loadScores(mode);
+    scores.push(value);
+    scores.sort((a, b) => b - a); // sort descending
+    localStorage.setItem(scoresKey(mode), JSON.stringify(scores.slice(0, 10))); // keep top 10
+  }
+  catch (e) { /* private mode: skip saving */ }
+}
+
+function getBestScore(mode) {
+  const scores = loadScores(mode);
+  return scores.length > 0 ? scores[0] : 0;
+}
+
+// Display difficulty indicator
+function getDifficultyLevel() {
+  const ramp = Math.min(1, state.cuts / 25);
+  return Math.round(ramp * 100);
+}
+
+// Spacebar to restart game (press during game over screen)
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && !state.running && el.cardEnd.classList.contains("hidden") === false) {
+    e.preventDefault();
+    startGame();
+  }
+});
+  </script>
 </body>
 </html>

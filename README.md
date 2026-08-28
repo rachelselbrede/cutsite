@@ -49,6 +49,22 @@ This game keeps those ideas and simplifies the rest:
 | `index.html` | Page structure: scoreboard, the DNA stage, and the start / game-over screens |
 | `style.css` | The fluorescence-imaging look, the scissors cursor, and all animations |
 | `script.js` | Game logic: drawing the strand, spawning targets, scoring, and sound |
+| `cutsite-standalone.html` | The whole game as one file. **Generated** — see below |
+| `build-standalone.py` | Builds the standalone file from the three above |
+
+There is still no build step for playing or deploying the game; `index.html`
+loads the CSS and JS directly. The script exists only to produce the single-file
+copy, which is handy for emailing the game or opening it off a USB stick.
+
+After editing `index.html`, `style.css`, or `script.js`, regenerate it:
+
+```
+python3 build-standalone.py
+```
+
+`python3 build-standalone.py --check` verifies the committed copy is current
+without writing anything, and exits non-zero if it has fallen behind. Do not
+edit `cutsite-standalone.html` by hand — the next build overwrites it.
 
 The JavaScript is organised into clear sections (config, state, the DNA strand,
 the target loop, scoring, sound, helpers) and is commented throughout, so it is
