@@ -73,13 +73,22 @@ body {
   transition: opacity 0.2s ease;
 }
 .scissors.active { opacity: 1; }
-.scissors .blade { transform-origin: 6px 16px; transition: transform 90ms ease; }
-.scissors.snip .blade-top    { transform: rotate(11deg); }
-.scissors.snip .blade-bottom { transform: rotate(-11deg); }
+/* Both arms pivot about the screw at (16,16) in the SVG's own coordinates.
+   This used to be 6px 16px - out by the handles - so the blades swung around
+   the wrong point and the snip flailed instead of closing. */
+.scissors .blade {
+  transform-box: view-box;
+  transform-origin: 16px 16px;
+  transition: transform 90ms ease;
+}
+/* SVG y runs downwards, so a positive rotation is clockwise on screen.
+   Closing the tips means the lower arm goes up and the upper arm goes down. */
+.scissors.snip .blade-top    { transform: rotate(-11deg); }
+.scissors.snip .blade-bottom { transform: rotate(11deg); }
 /* blades jammed after an off-target cut: stuck open and red until they free up */
 .scissors.jammed { color: var(--danger); animation: jamShudder 0.45s ease; }
-.scissors.jammed .blade-top    { transform: rotate(-14deg); }
-.scissors.jammed .blade-bottom { transform: rotate(14deg); }
+.scissors.jammed .blade-top    { transform: rotate(14deg); }
+.scissors.jammed .blade-bottom { transform: rotate(-14deg); }
 @keyframes jamShudder {
   0%, 100% { margin-left: 0; }
   20% { margin-left: -3px; }
@@ -574,18 +583,24 @@ body {
   <!-- Scissors cursor that follows the pointer over the play area -->
   <div class="scissors" id="scissors" aria-hidden="true">
     <svg viewBox="0 0 32 32" width="34" height="34">
-      <!-- Left handle and blade -->
+      <!--
+        Two arms crossing at the pivot (16,16). Each arm is a handle ring on
+        the left, a shank running in to the pivot, and a blade continuing out
+        the FAR side to a tip on the right - so the arms form an X, the way
+        real scissors do. Both arms rotate about the pivot; see style.css.
+      -->
       <g class="blade blade-top">
-        <circle cx="7" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
-        <path d="M 9.5 10.5 L 20 6 L 22 8 L 16 16 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="6.5" cy="8.5" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M 9.01 10.48 L 16.00 16.00" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 14.78 17.46 L 27.78 26.27 L 28.22 25.73 L 17.22 14.54 Z" fill="currentColor" stroke="currentColor" stroke-width="0.5" stroke-linejoin="round"/>
       </g>
-      <!-- Right handle and blade -->
       <g class="blade blade-bottom">
-        <circle cx="7" cy="24" r="3" fill="none" stroke="currentColor" stroke-width="2"/>
-        <path d="M 9.5 21.5 L 20 26 L 22 24 L 16 16 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="6.5" cy="23.5" r="3.2" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M 9.01 21.52 L 16.00 16.00" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M 17.22 17.46 L 28.22 6.27 L 27.78 5.73 L 14.78 14.54 Z" fill="currentColor" stroke="currentColor" stroke-width="0.5" stroke-linejoin="round"/>
       </g>
-      <!-- Center pivot -->
-      <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+      <!-- The pivot screw, drawn last so it sits on top of both blades -->
+      <circle cx="16" cy="16" r="1.3" fill="currentColor"/>
     </svg>
   </div>
 
