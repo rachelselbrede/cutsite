@@ -73,6 +73,9 @@ body {
   transition: opacity 0.2s ease;
 }
 .scissors.active { opacity: 1; }
+/* Closing fully swings the handles a hair outside the 32x32 viewBox.
+   Nothing here is interactive, so let the artwork spill rather than clip. */
+.scissors svg { overflow: visible; }
 /* Both arms pivot about the screw at (16,16) in the SVG's own coordinates.
    This used to be 6px 16px - out by the handles - so the blades swung around
    the wrong point and the snip flailed instead of closing. */
@@ -82,9 +85,13 @@ body {
   transition: transform 90ms ease;
 }
 /* SVG y runs downwards, so a positive rotation is clockwise on screen.
-   Closing the tips means the lower arm goes up and the upper arm goes down. */
-.scissors.snip .blade-top    { transform: rotate(-11deg); }
-.scissors.snip .blade-bottom { transform: rotate(11deg); }
+   Closing the tips means the lower arm goes up and the upper arm goes down.
+   39.8deg is exactly the rest half-angle (atan2(10,12)), so the blades meet
+   flush instead of stopping short. Shutting is quicker than reopening, which
+   is what makes it read as a snip rather than a wobble. */
+.scissors.snip .blade        { transition-duration: 55ms; }
+.scissors.snip .blade-top    { transform: rotate(-39.8deg); }
+.scissors.snip .blade-bottom { transform: rotate(39.8deg); }
 /* blades jammed after an off-target cut: stuck open and red until they free up */
 .scissors.jammed { color: var(--danger); animation: jamShudder 0.45s ease; }
 .scissors.jammed .blade-top    { transform: rotate(14deg); }
@@ -1235,7 +1242,8 @@ function snipScissors() {
   if (!state.running) return;
   if (performance.now() < state.lockedUntil) return; // jammed: no snip animation
   el.scissors.classList.add("snip");
-  setTimeout(() => el.scissors.classList.remove("snip"), 110);
+  // Held past the 55ms close so the shut pose is actually visible.
+  setTimeout(() => el.scissors.classList.remove("snip"), 150);
 }
 
 function clearTimers() {

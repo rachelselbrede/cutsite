@@ -547,7 +547,8 @@ function snipScissors() {
   if (!state.running) return;
   if (performance.now() < state.lockedUntil) return; // jammed: no snip animation
   el.scissors.classList.add("snip");
-  setTimeout(() => el.scissors.classList.remove("snip"), 110);
+  // Held past the 55ms close so the shut pose is actually visible.
+  setTimeout(() => el.scissors.classList.remove("snip"), 150);
 }
 
 function clearTimers() {
