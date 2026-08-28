@@ -179,7 +179,7 @@ body {
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
   padding: 30px 22px 34px;
-  min-height: 340px;
+  min-height: 372px;
   overflow: hidden;
   transition: transform 0.08s ease;
 }
@@ -361,12 +361,24 @@ body {
 .overlay {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* "safe" keeps a card taller than the stage from overflowing past the top
+     edge, where it would be clipped and unreachable; it top-aligns instead
+     and the overlay scrolls. Browsers without it fall back to flex-start,
+     which is also never clipped. */
+  justify-content: safe center;
+  gap: 10px;
+  padding: 14px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: rgba(6, 12, 24, 0.72);
   backdrop-filter: blur(3px);
   z-index: 50;
 }
+.overlay > * { flex-shrink: 0; }
 .overlay.hidden { display: none; }
 .card {
   width: min(460px, 95%);
@@ -378,7 +390,7 @@ body {
 }
 .card.hidden { display: none; }
 .card h2 { margin: 0 0 8px; font-size: 1.3rem; }
-.card p { color: var(--muted); font-size: 0.92rem; line-height: 1.45; margin: 0 0 14px; }
+.card p { color: var(--muted); font-size: 0.92rem; line-height: 1.45; margin: 0 0 12px; }
 .card b { color: var(--glow); font-weight: 700; }
 
 .btn {
@@ -433,10 +445,11 @@ body {
 .end-note { min-height: 1.2em; }
 .card-warn {
   border-left: 2px solid var(--danger);
-  padding-left: 12px;
+  padding-left: 10px;
   text-align: left;
   color: var(--muted);
-  font-size: 0.86rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 .card-warn b { color: var(--danger); }
 
@@ -513,6 +526,9 @@ body {
   list-style-position: inside;
   margin: 0;
   padding: 0;
+  /* ten entries would otherwise push "Edit again" off the card */
+  max-height: 124px;
+  overflow-y: auto;
   text-align: center;
   font-family: "JetBrains Mono", monospace;
   font-size: 0.85rem;
@@ -661,8 +677,8 @@ body {
             as fast as you can. Speed and streaks multiply your score.
           </p>
           <p class="card-warn">
-            Cut anywhere else and it counts as an <b>off-target</b> edit: your combo
-            resets and the blades jam for a moment. Aim, do not spray.
+            Cutting anywhere else is an <b>off-target</b> edit: the combo resets and
+            the blades jam. Aim, do not spray.
           </p>
           <div class="mode-selector">
             <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
