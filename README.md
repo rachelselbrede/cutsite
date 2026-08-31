@@ -98,4 +98,6 @@ Made by Rachel Selbrede as a portfolio project. Feedback and pull requests welco
 - **Visual Feedback**: Screen shake on perfect hits, particle burst effects, combo bonuses
 - **Off-target penalty**: Cutting plain DNA resets your combo and jams the blades
   for a moment, so precision beats spraying clicks
-- **Authentic CRISPR**: Accurate base pairing (A-T, G-C) and PAM site placement
+- **Authentic CRISPR**: Accurate base pairing (A-T, G-C), antiparallel 5'/3'
+  strands, a full `NGG` PAM immediately 3' of the target, and the blunt cut
+  drawn 3 bp upstream of the PAM, where Cas9 really breaks the duplex

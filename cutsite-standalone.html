@@ -1275,7 +1275,9 @@ function registerHit(col, e) {
   playSnip();
 
   clearTarget();
-  setStatus("Clean cut. Cas9 moves on.", true);
+  // Real Cas9 famously stays clamped on its cut product, so the next target
+  // means a fresh RNP scanning the strand for PAMs - which is the line.
+  setStatus("Clean cut. Scanning for the next PAM.", true);
   scheduleSpawn(CONFIG.gapAfterHit);
 }
 
@@ -1423,7 +1425,7 @@ function endMessage(cuts, acc, record) {
   if (state.offTargets > cuts) return "Too many off-target cuts. Wait for the glow instead of clicking through it.";
   if (acc >= 90) return "Surgical precision. Try chaining longer combos next.";
   if (acc >= 60) return "Solid work. A little faster and the multiplier climbs.";
-  return "Keep an eye on the PAM. That is where the cut lands.";
+  return "Keep an eye on the PAM. The cut always lands 3 bp upstream of it.";
 }
 
 // ---------- accuracy display ----------
