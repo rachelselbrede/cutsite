@@ -187,12 +187,14 @@ function startGame() {
   el.stage.style.cursor = "none";
   setStatus("Guide RNA loaded. Watch for the glow.", false);
 
-  // Show/hide timer and stop button based on mode
+  // Show/hide timer and stop button based on mode. Hide the whole
+  // stat box in zen, not just the number, so no empty panel is left.
+  const timeStat = el.time.closest(".stat");
   if (state.gameMode === 'zen') {
-    el.time.classList.add("hidden");
+    timeStat.classList.add("hidden");
     el.stopBtn.classList.remove("hidden");
   } else {
-    el.time.classList.remove("hidden");
+    timeStat.classList.remove("hidden");
     el.stopBtn.classList.add("hidden");
   }
 
@@ -312,11 +314,12 @@ function spawnTarget() {
   const breakCol = Math.max(start, end - CONFIG.cutOffsetFromPam + 1);
   cols[breakCol].classList.add("cut-site");
 
-  const window = currentWindow();
-  state.activeTarget = { start, end, spawnedAt: performance.now(), window, restore };
+  // Named windowMs so it does not shadow the global `window`.
+  const windowMs = currentWindow();
+  state.activeTarget = { start, end, spawnedAt: performance.now(), window: windowMs, restore };
   setStatus("Target locked. Cut it!", true);
 
-  state.timers.expiry = setTimeout(onExpire, window);
+  state.timers.expiry = setTimeout(onExpire, windowMs);
 }
 
 function onExpire() {

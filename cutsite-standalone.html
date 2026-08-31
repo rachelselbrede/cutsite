@@ -133,7 +133,8 @@ body {
 /* ---------- HUD ---------- */
 .hud {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* auto-fit lets the row rebalance when the Time stat is hidden in zen mode */
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
   margin-bottom: 18px;
 }
@@ -738,7 +739,7 @@ body {
             <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
             <button class="mode-btn" data-mode="zen">Zen (endless)</button>
           </div>
-          <button class="btn" id="start-btn" onclick="startGame()">Start editing</button>
+          <button class="btn" id="start-btn">Start editing</button>
           <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
         </div>
 
@@ -752,7 +753,7 @@ body {
           </div>
           <div id="leaderboard" class="leaderboard"></div>
           <p id="end-note" class="end-note"></p>
-          <button class="btn" id="again-btn" onclick="startGame()">Edit again</button>
+          <button class="btn" id="again-btn">Edit again</button>
         </div>
       </div>
     </section>
@@ -952,12 +953,14 @@ function startGame() {
   el.stage.style.cursor = "none";
   setStatus("Guide RNA loaded. Watch for the glow.", false);
 
-  // Show/hide timer and stop button based on mode
+  // Show/hide timer and stop button based on mode. Hide the whole
+  // stat box in zen, not just the number, so no empty panel is left.
+  const timeStat = el.time.closest(".stat");
   if (state.gameMode === 'zen') {
-    el.time.classList.add("hidden");
+    timeStat.classList.add("hidden");
     el.stopBtn.classList.remove("hidden");
   } else {
-    el.time.classList.remove("hidden");
+    timeStat.classList.remove("hidden");
     el.stopBtn.classList.add("hidden");
   }
 
@@ -1077,11 +1080,12 @@ function spawnTarget() {
   const breakCol = Math.max(start, end - CONFIG.cutOffsetFromPam + 1);
   cols[breakCol].classList.add("cut-site");
 
-  const window = currentWindow();
-  state.activeTarget = { start, end, spawnedAt: performance.now(), window, restore };
+  // Named windowMs so it does not shadow the global `window`.
+  const windowMs = currentWindow();
+  state.activeTarget = { start, end, spawnedAt: performance.now(), window: windowMs, restore };
   setStatus("Target locked. Cut it!", true);
 
-  state.timers.expiry = setTimeout(onExpire, window);
+  state.timers.expiry = setTimeout(onExpire, windowMs);
 }
 
 function onExpire() {

@@ -118,7 +118,8 @@ body {
 /* ---------- HUD ---------- */
 .hud {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* auto-fit lets the row rebalance when the Time stat is hidden in zen mode */
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
   margin-bottom: 18px;
 }
