@@ -127,16 +127,38 @@ document.querySelectorAll(".mode-btn").forEach(btn => {
 // A single click handler on the strand decides hit vs miss.
 el.strand.addEventListener("click", handleStrandClick);
 
-// The scissors follow the pointer while a round is live.
+// The scissors follow the pointer while a round is live. On touch there is
+// no roaming pointer to follow (CSS hides the scissors there too).
 document.addEventListener("pointermove", moveScissors);
 document.addEventListener("pointerdown", snipScissors);
 
 buildStrand();
 
+// Rotating a phone or resizing the window between rounds gets a strand
+// rebuilt at the right length. Mid-round the strand is left alone so an
+// active target's indices stay valid.
+let resizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (!state.running) buildStrand();
+  }, 150);
+});
+
 // ---------- 4. THE DNA STRAND ----------
+// On narrow screens 30 columns squeeze below a usable finger width, so the
+// strand shortens instead: fewer, fatter base pairs to tap.
+function strandColumnCount() {
+  const w = window.innerWidth;
+  if (w < 480) return 16;
+  if (w < 720) return 22;
+  return CONFIG.strandLength;
+}
+
 function buildStrand() {
   el.strand.innerHTML = "";
-  for (let i = 0; i < CONFIG.strandLength; i++) {
+  const count = strandColumnCount();
+  for (let i = 0; i < count; i++) {
     const top = BASES[Math.floor(Math.random() * 4)];
     const bottom = COMPLEMENT[top];
 
@@ -283,8 +305,10 @@ function spawnTarget() {
   if (!state.running) return;
 
   const cols = columns();
-  // Leave room for the protospacer plus the whole PAM at its 3' end.
-  const maxStart = CONFIG.strandLength - CONFIG.targetLength - CONFIG.pamLength + 1;
+  // Leave room for the protospacer plus the whole PAM at its 3' end. The
+  // strand may be shorter than CONFIG.strandLength on small screens, so
+  // measure the real column count.
+  const maxStart = cols.length - CONFIG.targetLength - CONFIG.pamLength + 1;
   const start = Math.floor(Math.random() * maxStart);
   const end = start + CONFIG.targetLength - 1;
 
@@ -475,10 +499,19 @@ function currentWindow() {
 
 // ---------- 8. SOUND (synthesised, no files) ----------
 let audioCtx = null;
+
+// iOS Safari creates the context suspended until a user gesture, and both
+// play functions run inside tap handlers, so resuming here is enough.
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
 function playSnip() {
   if (state.muted) return;
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    ensureAudio();
     const now = audioCtx.currentTime;
     // two quick metallic blips for a "snik-snik"
     [0, 0.07].forEach((offset) => {
@@ -502,7 +535,7 @@ function playSnip() {
 function playJam() {
   if (state.muted) return;
   try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    ensureAudio();
     const now = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
@@ -574,12 +607,16 @@ function floatPoints(col, text) {
 }
 
 function moveScissors(e) {
+  // A finger is not a cursor: the scissors are hidden on touch devices,
+  // so do not drag them to the last tap point on hybrid screens either.
+  if (e.pointerType === "touch") return;
   el.scissors.style.left = e.clientX + "px";
   el.scissors.style.top = e.clientY + "px";
 }
 
-function snipScissors() {
+function snipScissors(e) {
   if (!state.running) return;
+  if (e.pointerType === "touch") return; // scissors are hidden on touch
   if (performance.now() < state.lockedUntil) return; // jammed: no snip animation
   el.scissors.classList.add("snip");
   // Held past the 55ms close so the shut pose is actually visible.

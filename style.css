@@ -172,6 +172,15 @@ body {
   overflow: hidden;
   transition: transform 0.08s ease;
 }
+.stage {
+  /* rapid tapping must never trigger double-tap zoom, long-press must not
+     start selecting base letters, and taps should not flash a highlight */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
 .stage.shake {
   animation: shake 0.2s ease;
 }
@@ -497,8 +506,21 @@ body {
 @media (max-width: 560px) {
   .hud { grid-template-columns: repeat(2, 1fr); }
   .brand h1 { font-size: 1.55rem; }
-  .col { gap: 10px; }
+  /* The strand is also shorter here (script.js), so each column is wider.
+     Extra vertical padding grows the tap target without moving the bases,
+     and slimmer side padding hands every spare pixel to the columns. */
+  .col { gap: 10px; padding: 12px 0; }
   .base { font-size: 0.68rem; }
+  .stage { padding-left: 12px; padding-right: 12px; }
+  .helix { padding-left: 14px; padding-right: 14px; }
+  .backbone { left: 14px; right: 14px; }
+}
+
+/* Touch-only devices: there is no roaming pointer for the scissors to
+   follow, so a cursor stand-in would just sit wherever the last tap was. */
+@media (hover: none) and (pointer: coarse) {
+  .scissors { display: none; }
+  .strand { cursor: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
