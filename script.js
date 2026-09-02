@@ -33,6 +33,30 @@ const CONFIG = {
   lockoutMs: 450,        // blades jam this long after an off-target cut
 };
 
+// Per-mode tuning. Classic and Zen are pure reflex: one glowing site, short
+// windows. Guide RNA mode lights several sites at once and only the one
+// matching the displayed guide beside a real NGG is cuttable, so it trades
+// speed for reading time and a longer round.
+const MODES = {
+  classic: { label: "Classic", timed: true, roundSeconds: CONFIG.roundSeconds,
+             windowStart: CONFIG.windowStart, windowMin: CONFIG.windowMin, decoys: () => 0 },
+  zen:     { label: "Zen", timed: false, roundSeconds: 0,
+             windowStart: CONFIG.windowStart, windowMin: CONFIG.windowMin, decoys: () => 0 },
+  guide:   { label: "Guide RNA", timed: true, roundSeconds: 45,
+             windowStart: 4000, windowMin: 1800, decoys: (cuts) => (cuts < 8 ? 1 : 2) },
+};
+function mode() {
+  return MODES[state.gameMode] || MODES.classic;
+}
+
+// Why a decoy is not a real target. Both are the actual reasons Cas9 leaves
+// a site alone: no PAM means it never even unwinds the DNA to check, and a
+// mismatch in the seed (the bases nearest the PAM) stops the guide pairing.
+const DECOY_MESSAGES = {
+  nopam: "Perfect match, but no PAM. Cas9 never cuts without an NGG.",
+  seed: "Seed mismatch beside the PAM. The guide can't pair there.",
+};
+
 // DNA base pairing. Cas9 needs a PAM immediately 3' of the protospacer.
 // For S. pyogenes Cas9 that motif is NGG: any base, then two Gs. The N is
 // left as whatever the strand already generated, which is the point of it.
@@ -47,10 +71,10 @@ const state = {
   cuts: 0,
   misses: 0,
   timeLeft: CONFIG.roundSeconds,
-  activeTarget: null,   // { start, end, spawnedAt, window, expiry }
+  activeTarget: null,   // { start, end, breakIndex, guide, spawnedAt, window, restore }
   timers: { round: null, spawn: null, expiry: null },
   muted: false,
-  gameMode: 'classic',  // 'classic' or 'zen'
+  gameMode: 'classic',  // a key of MODES
   earnedAchievements: [], // achievements earned this round
   previouslyUnlocked: [], // achievements already unlocked before this round (from storage)
   maxCombo: 1,
@@ -78,6 +102,7 @@ const el = {
   time: document.getElementById("time"),
   difficulty: document.getElementById("difficulty"),
   accuracyDisplay: document.getElementById("accuracy-display"),
+  guideSeq: document.getElementById("guide-seq"),
   best: document.getElementById("best"),
   overlay: document.getElementById("overlay"),
   cardStart: document.getElementById("card-start"),
@@ -150,9 +175,14 @@ window.addEventListener("resize", () => {
 // strand shortens instead: fewer, fatter base pairs to tap.
 function strandColumnCount() {
   const w = window.innerWidth;
-  if (w < 480) return 16;
-  if (w < 720) return 22;
-  return CONFIG.strandLength;
+  let count = CONFIG.strandLength;
+  if (w < 480) count = 16;
+  else if (w < 720) count = 22;
+  // Guide mode needs room for a decoy beside the real site: two 8-column
+  // windows plus the gap between them, with a little slack so the placement
+  // is not forced into a single arrangement.
+  if (state.gameMode === "guide") count = Math.max(count, 20);
+  return count;
 }
 
 function buildStrand() {
@@ -181,13 +211,14 @@ function columns() {
 function startGame() {
   clearTimers();
   buildStrand();
+  const m = mode();
 
   state.running = true;
   state.score = 0;
   state.combo = 1;
   state.cuts = 0;
   state.misses = 0;
-  state.timeLeft = CONFIG.roundSeconds;
+  state.timeLeft = m.roundSeconds;
   state.activeTarget = null;
   state.earnedAchievements = [];
   state.previouslyUnlocked = loadUnlockedAchievements();
@@ -200,19 +231,22 @@ function startGame() {
   el.combo.textContent = "\u00d71";
   el.difficulty.textContent = "0%";
   el.difficulty.setAttribute("data-level", "low");
-  el.time.textContent = CONFIG.roundSeconds;
+  el.time.textContent = m.roundSeconds;
   el.time.classList.remove("low");
   el.overlay.classList.add("hidden");
   el.scissors.classList.add("active");
   // Position scissors at center of screen so they're visible immediately
   initializeScissors();
   el.stage.style.cursor = "none";
-  setStatus("Guide RNA loaded. Watch for the glow.", false);
+  showGuide(null);
+  setStatus(state.gameMode === "guide"
+    ? "Read the guide. Only its match beside an NGG is a real target."
+    : "Guide RNA loaded. Watch for the glow.", false);
 
-  // Show/hide timer and stop button based on mode. Hide the whole
-  // stat box in zen, not just the number, so no empty panel is left.
+  // Untimed modes swap the countdown for a stop button. Hide the whole
+  // stat box, not just the number, so no empty panel is left.
   const timeStat = el.time.closest(".stat");
-  if (state.gameMode === 'zen') {
+  if (!m.timed) {
     timeStat.classList.add("hidden");
     el.stopBtn.classList.remove("hidden");
   } else {
@@ -220,8 +254,7 @@ function startGame() {
     el.stopBtn.classList.add("hidden");
   }
 
-  // countdown (only for classic mode)
-  if (state.gameMode === 'classic') {
+  if (m.timed) {
     state.timers.round = setInterval(() => {
       state.timeLeft--;
       el.time.textContent = state.timeLeft;
@@ -284,7 +317,7 @@ function endGame() {
 
   // Populate leaderboard for the mode just played
   const scores = loadScores(mode);
-  const boardLabel = mode === "zen" ? "Zen" : "Classic";
+  const boardLabel = (MODES[mode] || MODES.classic).label;
   const leaderboardHTML = scores.slice(0, 10).map((s) =>
     `<li>${s.toLocaleString()}</li>`
   ).join("");
@@ -301,47 +334,108 @@ function scheduleSpawn(delay) {
   state.timers.spawn = setTimeout(spawnTarget, delay);
 }
 
+// Pick `count` non-overlapping windows of protospacer + PAM, each at least
+// SITE_GAP plain columns clear of the next so the glows read as separate
+// sites rather than one long smear. Returns null if they will not fit, so
+// the caller can retry with fewer decoys.
+const SITE_GAP = 2;
+function placeWindows(colCount, count) {
+  const span = CONFIG.targetLength + CONFIG.pamLength;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const starts = [];
+    for (let k = 0; k < count; k++) {
+      const s = Math.floor(Math.random() * (colCount - span + 1));
+      if (starts.some((o) => Math.abs(o - s) < span + SITE_GAP)) break;
+      starts.push(s);
+    }
+    if (starts.length === count) return starts;
+  }
+  return null;
+}
+
 function spawnTarget() {
   if (!state.running) return;
 
   const cols = columns();
-  // Leave room for the protospacer plus the whole PAM at its 3' end. The
-  // strand may be shorter than CONFIG.strandLength on small screens, so
-  // measure the real column count.
-  const maxStart = cols.length - CONFIG.targetLength - CONFIG.pamLength + 1;
-  const start = Math.floor(Math.random() * maxStart);
+  const m = mode();
+  const readBase = (i) => cols[i].querySelector(".base").textContent;
+
+  // Every base written for this target is recorded so clearTarget can put it
+  // back. Writing Gs in permanently made the strand drift towards poly-G over
+  // a round - after 500 spawns the N position was a G 94% of the time - which
+  // is not a sequence any genome would produce.
+  const restore = [];
+  const write = (i, letter) => {
+    restore.push({ index: i, base: readBase(i) });
+    setBase(cols[i], letter);
+  };
+
+  // The strand may be shorter than CONFIG.strandLength on small screens, so
+  // fit as many decoys as the real column count allows.
+  let decoys = m.decoys(state.cuts);
+  let starts = placeWindows(cols.length, decoys + 1);
+  while (!starts && decoys > 0) starts = placeWindows(cols.length, --decoys + 1);
+
+  const start = starts[0];
   const end = start + CONFIG.targetLength - 1;
 
   // The PAM is NGG. Only the two Gs are fixed; the N keeps whatever base the
   // strand already had, because in NGG the first position genuinely is any
   // base. Tagging all three makes the motif on screen the length it really is.
-  //
-  // The originals are kept so they can go back when the target clears. Writing
-  // Gs in permanently made the strand drift towards poly-G over a round - after
-  // 500 spawns the N position was a G 94% of the time - which is not a sequence
-  // any genome would produce.
-  const restore = [end + 2, end + 3].map((i) => ({
-    index: i,
-    base: cols[i].querySelector(".base").textContent,
-  }));
-  setBase(cols[end + 2], "G");
-  setBase(cols[end + 3], "G");
+  write(end + 2, "G");
+  write(end + 3, "G");
   for (let i = 1; i <= CONFIG.pamLength; i++) cols[end + i].classList.add("pam");
-  // One label, centred under the middle base of the motif.
-  cols[end + 2].classList.add("pam-label");
+  for (let i = start; i <= end; i++) cols[i].classList.add("candidate", "in-target");
 
-  for (let i = start; i <= end; i++) cols[i].classList.add("in-target");
+  // The guide's spacer reads the same as the protospacer on this strand
+  // (with U for T); it base-pairs with the strand underneath.
+  const guide = [];
+  for (let i = start; i <= end; i++) guide.push(readBase(i));
+
+  // Decoys carry the same sequence as the guide, then break in one of the two
+  // ways Cas9 really refuses a site. Alternate the kinds so a two-decoy spawn
+  // always shows one of each.
+  const kinds = Math.random() < 0.5 ? ["nopam", "seed"] : ["seed", "nopam"];
+  starts.slice(1).forEach((s, k) => {
+    const e = s + CONFIG.targetLength - 1;
+    const kind = kinds[k % 2];
+    guide.forEach((b, j) => write(s + j, b));
+    if (kind === "nopam") {
+      // Any triplet that is not NGG: the last position is forced off G.
+      write(e + 2, BASES[Math.floor(Math.random() * 4)]);
+      write(e + 3, randomBaseExcept("G"));
+    } else {
+      write(e + 2, "G");
+      write(e + 3, "G");
+      // One mismatch in the seed: the base right beside the PAM, or the next.
+      const pos = e - Math.floor(Math.random() * 2);
+      write(pos, randomBaseExcept(readBase(pos)));
+    }
+    for (let i = 1; i <= CONFIG.pamLength; i++) cols[e + i].classList.add("pam");
+    for (let i = s; i <= e; i++) {
+      cols[i].classList.add("candidate", "decoy");
+      cols[i].dataset.decoy = kind;
+    }
+  });
 
   // Cas9 makes a blunt double-strand break a fixed 3 bp upstream of the PAM,
-  // not across the whole protospacer. Mark the base immediately 3' of the
-  // break so the line can be drawn on its leading edge.
-  const breakCol = Math.max(start, end - CONFIG.cutOffsetFromPam + 1);
-  cols[breakCol].classList.add("cut-site");
+  // not across the whole protospacer. The base immediately 3' of the break
+  // carries the line on its leading edge. With decoys on screen the line
+  // would give the answer away, so it waits for the cut itself.
+  const breakIndex = Math.max(start, end - CONFIG.cutOffsetFromPam + 1);
+  if (decoys === 0) {
+    cols[breakIndex].classList.add("cut-site");
+    // One label, centred under the middle base of the motif.
+    cols[end + 2].classList.add("pam-label");
+  }
 
   // Named windowMs so it does not shadow the global `window`.
   const windowMs = currentWindow();
-  state.activeTarget = { start, end, spawnedAt: performance.now(), window: windowMs, restore };
-  setStatus("Target locked. Cut it!", true);
+  state.activeTarget = {
+    start, end, breakIndex, guide, spawnedAt: performance.now(), window: windowMs, restore,
+  };
+  showGuide(guide);
+  setStatus(decoys > 0 ? "Which site matches the guide? Check its PAM." : "Target locked. Cut it!", true);
 
   state.timers.expiry = setTimeout(onExpire, windowMs);
 }
@@ -365,8 +459,13 @@ function clearTarget() {
     const cols = columns();
     state.activeTarget.restore.forEach((r) => setBase(cols[r.index], r.base));
   }
-  columns().forEach((c) =>
-    c.classList.remove("in-target", "pam", "pam-label", "cut-site", "breaking"));
+  columns().forEach((c) => {
+    c.classList.remove("candidate", "in-target", "decoy", "pam", "pam-label", "cut-site", "breaking");
+    delete c.dataset.decoy;
+  });
+  // The guide goes with its target. Leaving the last one up between spawns
+  // would invite reading a sequence that no longer applies.
+  showGuide(null);
   state.activeTarget = null;
 }
 
@@ -388,6 +487,8 @@ function handleStrandClick(e) {
 
   if (col.classList.contains("in-target")) {
     registerHit(col, e);
+  } else if (col.classList.contains("decoy")) {
+    registerOffTarget(col, DECOY_MESSAGES[col.dataset.decoy]);
   } else {
     registerOffTarget(col, "Off-target cut. Combo lost, blades jammed.");
   }
@@ -472,21 +573,23 @@ function registerHit(col, e) {
     setTimeout(() => el.stage.classList.remove("shake"), 200);
   }
 
+  // Clear the target first: clearTarget strips the site classes, and the
+  // cut animations below must outlive that. The next spawn waits
+  // gapAfterHit, longer than any of them, so they never collide.
+  clearTarget();
+
   // The protospacer flashes to show which site was edited, but the break
   // itself is drawn at the single scissile position, blunt, 3 bp from the PAM.
   for (let i = t.start; i <= t.end; i++) {
     cols[i].classList.add("cut");
     setTimeout(() => cols[i].classList.remove("cut"), 400);
   }
-  const breakCol = cols.find((c) => c.classList.contains("cut-site"));
-  if (breakCol) {
-    breakCol.classList.add("breaking");
-    setTimeout(() => breakCol.classList.remove("breaking"), 400);
-  }
+  const breakCol = cols[t.breakIndex];
+  breakCol.classList.add("cut-site", "breaking");
+  setTimeout(() => breakCol.classList.remove("cut-site", "breaking"), 400);
   floatPoints(col, "+" + gained.toLocaleString());
   playSnip();
 
-  clearTarget();
   // Real Cas9 famously stays clamped on its cut product, so the next target
   // means a fresh RNP scanning the strand for PAMs - which is the line.
   setStatus("Clean cut. Scanning for the next PAM.", true);
@@ -495,8 +598,9 @@ function registerHit(col, e) {
 
 // difficulty: the window shrinks as you land more cuts
 function currentWindow() {
+  const m = mode();
   const ramp = Math.min(1, state.cuts / 25);
-  return Math.round(CONFIG.windowStart - (CONFIG.windowStart - CONFIG.windowMin) * ramp);
+  return Math.round(m.windowStart - (m.windowStart - m.windowMin) * ramp);
 }
 
 // ---------- 8. SOUND (synthesised, no files) ----------
@@ -573,6 +677,25 @@ function setBase(col, letter) {
 function setStatus(text, hot) {
   el.status.textContent = text;
   el.status.classList.toggle("hot", !!hot);
+}
+
+function randomBaseExcept(letter) {
+  const pool = BASES.filter((b) => b !== letter);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// The guide is RNA, so it is shown 5' to 3' with U in place of T. Its spacer
+// matches the protospacer on the top strand and pairs with the bottom one.
+function showGuide(bases) {
+  if (!el.guideSeq) return;
+  if (!bases) {
+    el.guideSeq.textContent = "—";
+    return;
+  }
+  el.guideSeq.innerHTML = bases.map((b) => {
+    const r = b === "T" ? "U" : b;
+    return `<span class="base base-${r}">${r}</span>`;
+  }).join("");
 }
 
 function bump(node) {
@@ -706,7 +829,7 @@ function checkAchievements() {
 // Classic and Zen keep separate boards: Zen is endless, so its scores
 // would otherwise swamp the shared top-10 and bury every Classic run.
 function scoresKey(mode) {
-  return "cutsite-scores-" + (mode === "zen" ? "zen" : "classic");
+  return "cutsite-scores-" + (MODES[mode] ? mode : "classic");
 }
 
 // One-time migration of the old shared keys into the Classic board.

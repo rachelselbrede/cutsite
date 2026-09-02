@@ -44,6 +44,15 @@ This game keeps those ideas and simplifies the rest:
 - The dashed amber line is the **scissile position**. Cas9 breaks the duplex
   bluntly, 3 bp upstream of the PAM, and that is exactly where the game draws
   it rather than severing the whole target window.
+- The **guide RNA** readout above the strand shows the loaded guide's spacer
+  as RNA, 5' to 3' with U in place of T. It reads the same as the target's
+  top strand because that is the strand it *does not* pair with: the guide
+  base-pairs with the bottom strand, which is why the top one has to match.
+- In **Guide RNA mode** several sites glow at once and only one is real. The
+  decoys fail the way real sites fail: a perfect sequence match with **no
+  PAM** (Cas9 never even unwinds DNA that lacks an `NGG`), or an intact PAM
+  next to a **seed mismatch** in the bases nearest it, where the guide has to
+  pair or the enzyme lets go. Cutting a decoy counts as off-target.
 - The target length and the 20-letter guide are shortened so the whole thing
   fits on one screen and stays fun.
 
@@ -77,14 +86,11 @@ easy to read and extend.
 
 ## Ideas for next versions
 
-- A **guide RNA** you have to match: show a target sequence and only score cuts
-  at the correct spot.
 - Difficulty levels, a longer genome that scrolls, or a two-player mode.
-- Decoy sites that *look* like valid targets but carry a mismatched PAM.
-- A **seed region**: mismatches in the ~10-12 bases nearest the PAM abolish
-  cutting, while PAM-distal mismatches are tolerated. That asymmetry is the
-  actual mechanism behind off-target editing.
-- Perfect guide matches with **no adjacent PAM**, which Cas9 will never cut.
+- **PAM-distal mismatches** that Cas9 still cuts: the real off-target case,
+  where a site tolerates a mismatch far from the PAM and gets edited anyway.
+  Today's decoys are all sites Cas9 correctly refuses.
+- Other Cas enzymes with their own PAMs (Cas12a's `TTTV`, SaCas9's `NNGRRT`).
 
 ## Credits
 
@@ -94,7 +100,9 @@ Made by Rachel Selbrede as a portfolio project. Feedback and pull requests welco
 
 - **Classic Mode**: 30-second timed rounds with escalating difficulty
 - **Zen Mode**: Endless practice mode for relaxation  
-- **Leaderboard**: Track your top 10 scores with persistent browser storage
+- **Guide RNA Mode**: 45-second rounds where decoy sites glow alongside the
+  real one; read the guide and find the match beside a genuine `NGG`
+- **Leaderboard**: Track your top 10 scores per mode with persistent browser storage
 - **Visual Feedback**: Screen shake on perfect hits, particle burst effects, combo bonuses
 - **Off-target penalty**: Cutting plain DNA resets your combo and jams the blades
   for a moment, so precision beats spraying clicks

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=9" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -66,6 +66,13 @@
       <div class="status" id="status">Load a guide RNA to begin</div>
       <div class="accuracy-display" id="accuracy-display">Accuracy: —</div>
 
+      <!-- The loaded guide RNA: its spacer reads like the target's top strand,
+           written as RNA (U for T). Filled in by script.js at each spawn. -->
+      <div class="guide" id="guide" aria-live="polite">
+        <span class="guide-label">Guide RNA</span>
+        <span class="guide-end">5&prime;-</span><span class="guide-seq" id="guide-seq">—</span><span class="guide-end">-3&prime;</span>
+      </div>
+
       <!-- The DNA double helix. Columns are injected by script.js -->
       <div class="helix" id="helix">
         <!-- The two strands run antiparallel; the protospacer and its PAM are
@@ -93,9 +100,14 @@
             Cutting anywhere else is an <b>off-target</b> edit: the combo resets and
             the blades jam.
           </p>
+          <p>
+            <b>Guide RNA</b> mode lights up decoys too. Read the guide and cut only
+            the site that matches it beside a real <b>NGG</b> PAM.
+          </p>
           <div class="mode-selector">
             <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
             <button class="mode-btn" data-mode="zen">Zen (endless)</button>
+            <button class="mode-btn" data-mode="guide">Guide RNA (45s)</button>
           </div>
           <button class="btn" id="start-btn">Start editing</button>
           <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
@@ -121,6 +133,6 @@
     </footer>
   </main>
 
-  <script src="script.js?v=8"></script>
+  <script src="script.js?v=9"></script>
 </body>
 </html>

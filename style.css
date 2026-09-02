@@ -293,13 +293,42 @@ body {
 .base-T { background: var(--base-t); }
 .base-G { background: var(--base-g); }
 .base-C { background: var(--base-c); }
+.base-U { background: var(--base-t); } /* RNA: uracil takes thymine's place */
+
+/* ---------- guide RNA readout ---------- */
+.guide {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  min-height: 20px;
+}
+.guide-label { text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.62rem; }
+.guide-end { opacity: 0.7; }
+.guide-seq { display: inline-flex; gap: 2px; min-width: 1.5em; justify-content: center; }
+.guide-seq .base {
+  width: 18px;
+  max-width: 18px;
+  font-size: 0.68rem;
+  border-radius: 4px;
+  opacity: 1;
+}
 
 /* active target: the fluorescing window */
-.col.in-target {
+/* Every candidate site glows the same way. In Guide RNA mode the decoys are
+   deliberately indistinguishable from the real target by look alone: the
+   only way to tell is to read the sequence and the PAM. */
+.col.candidate {
   background: var(--glow-soft);
   animation: fluoresce 0.9s ease-in-out infinite;
 }
-.col.in-target .base { opacity: 1; box-shadow: 0 0 12px 2px var(--glow-soft); }
+.col.candidate .base { opacity: 1; box-shadow: 0 0 12px 2px var(--glow-soft); }
 @keyframes fluoresce {
   0%, 100% { box-shadow: 0 0 0 0 rgba(46,230,200,0); }
   50% { box-shadow: 0 0 18px 3px var(--glow-soft); }
@@ -524,8 +553,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .col.in-target { animation: none; }
-  .col.in-target .base { box-shadow: 0 0 14px 3px var(--glow-soft); }
+  .col.candidate { animation: none; }
+  .col.candidate .base { box-shadow: 0 0 14px 3px var(--glow-soft); }
   .pop { animation-duration: 0.01s; }
   /* keep the red colour cue for a bad cut, drop the movement */
   .scissors.jammed { animation: none; }
