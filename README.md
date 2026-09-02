@@ -1,22 +1,34 @@
 # CutSite
 
-A small browser game about gene editing. A stretch of DNA fluoresces next to its
-**PAM** site, and you have to snip it with the Cas9 scissors before the window
+**A browser game about CRISPR gene editing.** A stretch of DNA fluoresces next to
+its **PAM** site, and you have to snip it with the Cas9 scissors before the window
 closes. Fast, accurate cuts build a combo and multiply your score.
 
-Built with plain HTML, CSS, and JavaScript, so there is nothing to install and it
-runs on GitHub Pages for free.
+### [▶ Play it](https://rachelselbrede.github.io/cutsite/)
 
-## Play it
+![CutSite in Guide RNA mode: three sites fluoresce along a DNA strand and the Cas9 scissors hover over the one that matches the loaded guide beside a real NGG PAM.](docs/screenshot.png)
 
-If this repo is deployed with GitHub Pages, the game lives at:
+*Guide RNA mode above. Three sites glow, but only one is cuttable: the left one has
+an intact PAM but a mismatch in its seed region, the middle one matches the guide
+perfectly yet has no `NGG` beside it, and only the right one satisfies both.*
 
-```
-https://rachelselbrede.github.io/cutsite/
-```
+Built with plain HTML, CSS, and JavaScript — nothing to install, no dependencies,
+no build step. To run it locally, open `index.html` in a browser.
 
-To run it on your own machine, just open `index.html` in a browser. No build step,
-no dependencies.
+## Modes and features
+
+- **Classic** — 30-second rounds; the reaction window tightens as you land cuts.
+- **Zen** — endless practice, no clock.
+- **Guide RNA** — 45-second rounds where decoy sites fluoresce alongside the real
+  one. Read the guide and cut only the site that matches it beside a genuine `NGG`.
+- **Off-target penalty** — cutting anything else resets your combo and jams the
+  blades for a moment, so precision beats spraying clicks.
+- **Leaderboards** — top 10 scores per mode, kept in browser storage.
+- **Achievements** — six unlockables that persist across sessions.
+- **Feedback** — screen shake on fast cuts, particle bursts, synthesised sound
+  (no audio files), and a live accuracy readout.
+- **Plays on a phone** — the strand shortens on narrow screens so every base pair
+  stays big enough to tap.
 
 ## The science behind the game
 
@@ -65,6 +77,8 @@ This game keeps those ideas and simplifies the rest:
 | `script.js` | Game logic: drawing the strand, spawning targets, scoring, and sound |
 | `cutsite-standalone.html` | The whole game as one file. **Generated** — see below |
 | `build-standalone.py` | Builds the standalone file from the three above |
+| `og-image.png` | Link-preview card, referenced by the `og:image` meta tag |
+| `docs/screenshot.png` | The screenshot at the top of this README |
 
 There is still no build step for playing or deploying the game; `index.html`
 loads the CSS and JS directly. The script exists only to produce the single-file
@@ -96,16 +110,4 @@ easy to read and extend.
 
 Made by Rachel Selbrede as a portfolio project. Feedback and pull requests welcome.
 
-## Features
-
-- **Classic Mode**: 30-second timed rounds with escalating difficulty
-- **Zen Mode**: Endless practice mode for relaxation  
-- **Guide RNA Mode**: 45-second rounds where decoy sites glow alongside the
-  real one; read the guide and find the match beside a genuine `NGG`
-- **Leaderboard**: Track your top 10 scores per mode with persistent browser storage
-- **Visual Feedback**: Screen shake on perfect hits, particle burst effects, combo bonuses
-- **Off-target penalty**: Cutting plain DNA resets your combo and jams the blades
-  for a moment, so precision beats spraying clicks
-- **Authentic CRISPR**: Accurate base pairing (A-T, G-C), antiparallel 5'/3'
-  strands, a full `NGG` PAM immediately 3' of the target, and the blunt cut
-  drawn 3 bp upstream of the PAM, where Cas9 really breaks the duplex
+Licensed under the [MIT License](LICENSE).
