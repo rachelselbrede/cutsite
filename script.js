@@ -81,6 +81,7 @@ const state = {
   consecutivePerfects: 0,
   offTargets: 0,        // stray cuts on non-target DNA this round
   lockedUntil: 0,       // performance.now() timestamp the blades free up
+  cursor: 0,            // column the keyboard is pointing at
 };
 
 // ---------- 1.5. ACHIEVEMENTS ----------
@@ -149,8 +150,17 @@ document.querySelectorAll(".mode-btn").forEach(btn => {
   });
 });
 
-// A single click handler on the strand decides hit vs miss.
+// A single click handler on the strand decides hit vs miss. The keyboard
+// goes through the same cut logic from a roving cursor.
 el.strand.addEventListener("click", handleStrandClick);
+el.strand.addEventListener("keydown", handleStrandKey);
+
+// The cursor ring should mean one thing: "the keyboard is driving". That is
+// tracked directly rather than left to :focus-visible, which only re-evaluates
+// when focus moves - and a click on a column never moves it, so after any key
+// press the ring would cling on through every mouse click that followed.
+document.addEventListener("keydown", () => el.strand.classList.add("kb"));
+document.addEventListener("pointerdown", () => el.strand.classList.remove("kb"));
 
 // The scissors follow the pointer while a round is live. On touch there is
 // no roaming pointer to follow (CSS hides the scissors there too).
@@ -195,12 +205,16 @@ function buildStrand() {
     const col = document.createElement("div");
     col.className = "col";
     col.dataset.index = i;
+    col.id = columnId(i);
+    col.setAttribute("role", "option");
     col.innerHTML = `
       <span class="base base-${top}">${top}</span>
       <span class="rung"></span>
       <span class="base base-${bottom}">${bottom}</span>`;
     el.strand.appendChild(col);
   }
+  relabelColumns();
+  setCursor(Math.min(state.cursor, count - 1));
 }
 
 function columns() {
@@ -239,6 +253,11 @@ function startGame() {
   initializeScissors();
   el.stage.style.cursor = "none";
   showGuide(null);
+  // Park the keyboard cursor in the middle, never on the target: in Guide
+  // RNA mode that would hand over the answer. Focusing the strand means a
+  // keyboard player can cut straight away after pressing Start.
+  setCursor(Math.floor(columns().length / 2));
+  el.strand.focus({ preventScroll: true });
   setStatus(state.gameMode === "guide"
     ? "Read the guide. Only its match beside an NGG is a real target."
     : "Guide RNA loaded. Watch for the glow.", false);
@@ -442,6 +461,7 @@ function spawnTarget() {
   state.activeTarget = {
     start, end, breakIndex, guide, spawnedAt: performance.now(), window: windowMs, restore,
   };
+  relabelColumns();
   showGuide(guide);
   setStatus(decoys > 0 ? "Which site matches the guide? Check its PAM." : "Target locked. Cut it!", true);
 
@@ -471,6 +491,7 @@ function clearTarget() {
     c.classList.remove("candidate", "in-target", "decoy", "pam", "pam-label", "cut-site", "breaking");
     delete c.dataset.decoy;
   });
+  relabelColumns();
   // The guide goes with its target. Leaving the last one up between spawns
   // would invite reading a sequence that no longer applies.
   showGuide(null);
@@ -479,12 +500,20 @@ function clearTarget() {
 
 // ---------- 7. CLICKS + SCORING ----------
 function handleStrandClick(e) {
-  if (!state.running) return;
-
   const col = e.target.closest(".col");
   if (!col) return;
+  // A click also parks the keyboard cursor there, so switching input
+  // mid-round never leaves the cursor somewhere surprising.
+  setCursor(Number(col.dataset.index));
+  attemptCut(col);
+}
 
-  // Blades are still jammed from the last bad cut: this click does nothing.
+// Every way of cutting - mouse, touch, keyboard - lands here, so scoring,
+// the off-target penalty and the lockout cannot drift apart by input.
+function attemptCut(col) {
+  if (!state.running || !col) return;
+
+  // Blades are still jammed from the last bad cut: this cut does nothing.
   if (performance.now() < state.lockedUntil) return;
 
   if (!state.activeTarget) {
@@ -494,12 +523,78 @@ function handleStrandClick(e) {
   }
 
   if (col.classList.contains("in-target")) {
-    registerHit(col, e);
+    registerHit(col);
   } else if (col.classList.contains("decoy")) {
     registerOffTarget(col, DECOY_MESSAGES[col.dataset.decoy]);
   } else {
     registerOffTarget(col, "Off-target cut. Combo lost, blades jammed.");
   }
+}
+
+// ---------- keyboard play ----------
+// The strand is one focusable listbox with a roving cursor, so a keyboard
+// player gets a single Tab stop rather than thirty. Arrows move the cursor,
+// Enter or Space cuts there, and the scissors follow it so the amber
+// pointer means the same thing whichever hand is driving.
+function columnId(i) {
+  return "col-" + i;
+}
+
+// What a screen reader hears for a column: its base pair, and whether it
+// is part of a fluorescing site or the PAM beside one.
+function describeColumn(col, i) {
+  const [top, bottom] = Array.from(col.querySelectorAll(".base"), (b) => b.textContent);
+  let label = "Position " + (i + 1) + ", " + top + " paired with " + bottom;
+  if (col.classList.contains("candidate")) label += ", fluorescing";
+  if (col.classList.contains("pam")) label += ", PAM";
+  return label;
+}
+
+function relabelColumns() {
+  columns().forEach((col, i) => col.setAttribute("aria-label", describeColumn(col, i)));
+}
+
+function setCursor(i) {
+  const cols = columns();
+  if (!cols.length) return;
+  state.cursor = Math.max(0, Math.min(cols.length - 1, i));
+  cols.forEach((c, k) => {
+    c.classList.toggle("cursor", k === state.cursor);
+    c.setAttribute("aria-selected", k === state.cursor ? "true" : "false");
+  });
+  el.strand.setAttribute("aria-activedescendant", columnId(state.cursor));
+}
+
+function pointScissorsAt(col) {
+  const r = col.getBoundingClientRect();
+  el.scissors.style.left = r.left + r.width / 2 + "px";
+  el.scissors.style.top = r.top + r.height / 2 + "px";
+}
+
+function handleStrandKey(e) {
+  const cols = columns();
+  let next = null;
+  switch (e.key) {
+    case "ArrowLeft":  next = state.cursor - 1; break;
+    case "ArrowRight": next = state.cursor + 1; break;
+    case "Home":       next = 0; break;
+    case "End":        next = cols.length - 1; break;
+    case "Enter":
+    case " ":
+      // Between rounds Space is the restart key (handled on document), so
+      // only claim it while a round is live.
+      if (!state.running) return;
+      e.preventDefault();
+      pointScissorsAt(cols[state.cursor]);
+      snipScissors({ pointerType: "keyboard" });
+      attemptCut(cols[state.cursor]);
+      return;
+    default:
+      return;
+  }
+  e.preventDefault();
+  setCursor(next);
+  pointScissorsAt(cols[state.cursor]);
 }
 
 // Off-target cutting is the real-world failure mode of CRISPR, so the game
@@ -526,7 +621,7 @@ function registerOffTarget(col, message) {
   playJam();
 }
 
-function registerHit(col, e) {
+function registerHit(col) {
   const t = state.activeTarget;
   const cols = columns();
 

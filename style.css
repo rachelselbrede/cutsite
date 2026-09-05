@@ -673,6 +673,18 @@ body {
   color: var(--muted);
 }
 
+/* ---------- keyboard play ---------- */
+/* The strand is the single Tab stop. Its own ring is suppressed and drawn on
+   the cursor column instead - and only while the keyboard is the active input
+   (script.js toggles .kb), so a mouse player never sees a ring they did not
+   ask for, and a keyboard player loses it the moment they reach for the mouse. */
+.strand:focus { outline: none; }
+.strand.kb:focus .col.cursor {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.card-hint { font-size: 0.8rem; opacity: 0.85; }
+
 /* ---------- utility classes ---------- */
 .hidden {
   display: none !important;

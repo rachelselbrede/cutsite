@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=9" />
+  <link rel="stylesheet" href="style.css?v=10" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -84,7 +84,7 @@
     </section>
 
     <section class="stage" id="stage">
-      <div class="status" id="status">Load a guide RNA to begin</div>
+      <div class="status" id="status" role="status" aria-live="polite">Load a guide RNA to begin</div>
       <div class="accuracy-display" id="accuracy-display">Accuracy: —</div>
 
       <!-- The loaded guide RNA: its spacer reads like the target's top strand,
@@ -103,7 +103,8 @@
         <span class="polarity polarity-bl" aria-hidden="true">3&prime;</span>
         <span class="polarity polarity-br" aria-hidden="true">5&prime;</span>
         <div class="backbone backbone-top"></div>
-        <div class="strand" id="strand"></div>
+        <div class="strand" id="strand" role="listbox" tabindex="0"
+             aria-label="DNA strand. Arrow keys move along it, Enter cuts."></div>
         <div class="backbone backbone-bottom"></div>
       </div>
 
@@ -124,6 +125,9 @@
           <p>
             <b>Guide RNA</b> mode lights up decoys too. Read the guide and cut only
             the site that matches it beside a real <b>NGG</b> PAM.
+          </p>
+          <p class="card-hint">
+            Keyboard works too: arrow keys move along the strand, Enter cuts.
           </p>
           <div class="mode-selector">
             <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
@@ -154,6 +158,6 @@
     </footer>
   </main>
 
-  <script src="script.js?v=9"></script>
+  <script src="script.js?v=10"></script>
 </body>
 </html>

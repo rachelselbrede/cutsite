@@ -389,6 +389,143 @@
   });
 
   // ============================================================
+  // Keyboard play and screen-reader announcements
+  // ============================================================
+  function key(k, code) {
+    el.strand.dispatchEvent(new KeyboardEvent("keydown", {
+      key: k, code: code || k, bubbles: true, cancelable: true,
+    }));
+  }
+
+  test("a11y: the status line is a polite live region", function () {
+    eq(el.status.getAttribute("role"), "status", "role");
+    eq(el.status.getAttribute("aria-live"), "polite", "aria-live");
+  });
+
+  test("a11y: the strand is one focusable listbox with labelled options", function () {
+    buildStrand();
+    eq(el.strand.getAttribute("role"), "listbox", "strand role");
+    eq(el.strand.getAttribute("tabindex"), "0", "strand should be in the Tab order");
+    assert(el.strand.getAttribute("aria-label"), "strand needs an accessible name");
+    cols().forEach(function (c, i) {
+      eq(c.getAttribute("role"), "option", "column " + i + " role");
+      assert(c.id, "column " + i + " needs an id for aria-activedescendant");
+      assert(/paired with/.test(c.getAttribute("aria-label")),
+             "column " + i + " label should name its base pair");
+    });
+    eq(el.strand.getAttribute("aria-activedescendant"), cols()[state.cursor].id,
+       "aria-activedescendant should track the cursor");
+  });
+
+  test("a11y: labels say which columns fluoresce and which are the PAM", function () {
+    const t = freeze("classic");
+    const c = cols();
+    assert(/fluorescing/.test(c[t.start].getAttribute("aria-label")), "target column should say fluorescing");
+    assert(/PAM/.test(c[t.end + 2].getAttribute("aria-label")), "PAM column should say PAM");
+    const plain = c.find(function (x) {
+      return !x.classList.contains("candidate") && !x.classList.contains("pam");
+    });
+    assert(!/fluorescing|PAM/.test(plain.getAttribute("aria-label")), "plain column should say neither");
+    clearTarget();
+    assert(!c.some(function (x) { return /fluorescing|PAM/.test(x.getAttribute("aria-label")); }),
+           "labels should return to plain base pairs when the target clears");
+  });
+
+  test("keyboard: arrows move the cursor, Home/End jump, edges clamp", function () {
+    buildStrand();
+    const last = cols().length - 1;
+    setCursor(5);
+    key("ArrowRight"); eq(state.cursor, 6, "right");
+    key("ArrowLeft"); key("ArrowLeft"); eq(state.cursor, 4, "left twice");
+    key("Home"); eq(state.cursor, 0, "home");
+    key("ArrowLeft"); eq(state.cursor, 0, "should clamp at the left edge");
+    key("End"); eq(state.cursor, last, "end");
+    key("ArrowRight"); eq(state.cursor, last, "should clamp at the right edge");
+    assert(cols()[last].classList.contains("cursor"), "cursor class should follow");
+    eq(cols().filter(function (c) { return c.classList.contains("cursor"); }).length, 1,
+       "exactly one column should carry the cursor");
+  });
+
+  test("keyboard: a new round parks the cursor mid-strand, never on the target", function () {
+    for (let n = 0; n < 30; n++) {
+      freeze("guide", 10);
+      eq(state.cursor, Math.floor(cols().length / 2), "cursor should start in the middle");
+    }
+  });
+
+  test("keyboard: spawning a target leaves the cursor where it was", function () {
+    freeze("classic");
+    setCursor(3);
+    clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
+    eq(state.cursor, 3, "a spawn must not move the cursor, or it would give the answer away");
+  });
+
+  test("keyboard: Enter cuts at the cursor and scores on the target", function () {
+    const t = freeze("classic");
+    setCursor(t.start);
+    key("Enter");
+    eq(state.cuts, 1, "cut count");
+    assert(state.score > 0, "should score");
+  });
+
+  test("keyboard: Space cuts mid-round instead of restarting", function () {
+    const t = freeze("classic");
+    setCursor(t.start);
+    key(" ", "Space");
+    eq(state.cuts, 1, "Space should cut");
+    assert(state.running, "the round should still be running");
+  });
+
+  test("keyboard: cutting plain DNA from the keyboard is off-target", function () {
+    freeze("classic");
+    const plain = cols().findIndex(function (c) {
+      return !c.classList.contains("candidate") && !c.classList.contains("pam");
+    });
+    setCursor(plain);
+    key("Enter");
+    eq(state.offTargets, 1, "off-target count");
+    eq(state.cuts, 0, "should not count as a cut");
+  });
+
+  test("keyboard: cuts respect the jam lockout", function () {
+    const t = freeze("classic");
+    state.lockedUntil = performance.now() + 5000;
+    setCursor(t.start);
+    key("Enter");
+    eq(state.cuts, 0, "a jammed blade should not cut from the keyboard either");
+  });
+
+  test("keyboard: a mouse click parks the cursor on that column", function () {
+    freeze("classic");
+    setCursor(0);
+    const plain = cols().findIndex(function (c, i) {
+      return i > 2 && !c.classList.contains("candidate") && !c.classList.contains("pam");
+    });
+    click(cols()[plain]);
+    eq(state.cursor, plain, "cursor should follow the click");
+  });
+
+  test("keyboard: the cursor ring shows only while the keyboard is driving", function () {
+    buildStrand();
+    el.strand.focus();
+    const ring = function () { return getComputedStyle(document.querySelector(".col.cursor")).outlineStyle; };
+    document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    eq(ring(), "none", "a mouse player should see no ring");
+    key("ArrowRight");
+    eq(ring(), "solid", "a key press should bring the ring up");
+    document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    eq(ring(), "none", "reaching for the mouse should drop the ring again");
+  });
+
+  test("keyboard: Space on the game-over card restarts the round", function () {
+    freeze("classic");
+    endGame();
+    assert(!state.running, "round should be over");
+    key(" ", "Space");
+    assert(state.running, "Space should restart from the game-over card");
+  });
+
+  // ============================================================
   // report
   // ============================================================
   const passed = results.filter(function (r) { return r.ok; }).length;

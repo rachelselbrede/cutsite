@@ -29,6 +29,9 @@ no build step. To run it locally, open `index.html` in a browser.
   (no audio files), and a live accuracy readout.
 - **Plays on a phone** — the strand shortens on narrow screens so every base pair
   stays big enough to tap.
+- **Plays on a keyboard** — Tab to the strand, arrow keys move along it, Enter
+  cuts. The status line is a live region, so screen readers hear each hit, miss,
+  and the reason an off-target cut failed.
 
 ## The science behind the game
 
@@ -111,7 +114,7 @@ in a real browser: `tests/run.py` serves the repo, copies `index.html` with
 `tests/suite.js` injected just after `script.js` — so the tests share the
 game's own scope — and reads the results back out of headless Chrome.
 
-Most of the 28 tests guard the biology, because that is the part of this
+Most of the 40 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a
