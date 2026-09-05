@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check JavaScript parses
+        run: |
+          node --check script.js
+          node --check tests/suite.js
+
+      # cutsite-standalone.html is generated. It silently fell three features
+      # behind when it was maintained by hand, so the build refuses to drift.
+      - name: Check the standalone build is current
+        run: python3 build-standalone.py --check
+
+      - name: Show the browser version under test
+        run: google-chrome --version
+
+      - name: Run the test suite
+        run: python3 tests/run.py

@@ -365,8 +365,16 @@ function spawnTarget() {
   // a round - after 500 spawns the N position was a G 94% of the time - which
   // is not a sequence any genome would produce.
   const restore = [];
+  const written = new Set();
   const write = (i, letter) => {
-    restore.push({ index: i, base: readBase(i) });
+    // Only the FIRST write to a column records a base to restore. A seed
+    // decoy writes its stretch twice - the guide sequence, then the one
+    // mismatched base - and recording both meant clearTarget replayed the
+    // intermediate value last, leaking the column's real base for good.
+    if (!written.has(i)) {
+      written.add(i);
+      restore.push({ index: i, base: readBase(i) });
+    }
     setBase(cols[i], letter);
   };
 

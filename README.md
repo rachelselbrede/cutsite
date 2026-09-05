@@ -79,6 +79,8 @@ This game keeps those ideas and simplifies the rest:
 | `build-standalone.py` | Builds the standalone file from the three above |
 | `og-image.png` | Link-preview card, referenced by the `og:image` meta tag |
 | `docs/screenshot.png` | The screenshot at the top of this README |
+| `tests/` | The test suite and its runner |
+| `.github/workflows/ci.yml` | Runs the tests on every push and pull request |
 
 There is still no build step for playing or deploying the game; `index.html`
 loads the CSS and JS directly. The script exists only to produce the single-file
@@ -97,6 +99,31 @@ edit `cutsite-standalone.html` by hand — the next build overwrites it.
 The JavaScript is organised into clear sections (config, state, the DNA strand,
 the target loop, scoring, sound, helpers) and is commented throughout, so it is
 easy to read and extend.
+
+## Tests
+
+```
+python3 tests/run.py
+```
+
+No test framework, and still nothing to install. The suite runs the real game
+in a real browser: `tests/run.py` serves the repo, copies `index.html` with
+`tests/suite.js` injected just after `script.js` — so the tests share the
+game's own scope — and reads the results back out of headless Chrome.
+
+Most of the 28 tests guard the biology, because that is the part of this
+project that is easy to break by accident and hard to notice: the PAM is
+always `NGG`, the cut always lands 3 bp upstream of it, the guide always
+matches the protospacer it labels, no-PAM decoys never accidentally acquire a
+real PAM, seed decoys differ by exactly one base and always inside the seed,
+and clearing a target restores the strand's base composition exactly.
+
+That last one earned its place immediately: it failed on the suite's first run
+and exposed a live bug in which every seed decoy leaked one base back into the
+strand, dragging the sequence toward poly-G and poly-T over a long session.
+
+`python3 build-standalone.py --check` runs in CI too, so the generated
+single-file copy cannot fall behind the sources again.
 
 ## Ideas for next versions
 
