@@ -460,6 +460,27 @@ body {
   padding: 14px 12px;
 }
 .card.hidden { display: none; }
+
+/* The end card is wider than the start card: its achievements and the top
+   ten sit side by side, which is what keeps it inside the stage with no
+   scrolling once both are on show. Narrow screens stack them and scroll. */
+#card-end { width: min(700px, 95%); }
+.end-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: start;
+  margin: 4px 0 6px;
+}
+/* Grid children default to min-width: auto, which lets a block wider than
+   its column push the whole body past the card edge instead of shrinking. */
+.end-body > * { min-width: 0; }
+.end-body .achievements-earned,
+.end-body .leaderboard { margin: 0; }
+@media (max-width: 720px) {
+  #card-end { width: min(460px, 95%); }
+  .end-body { grid-template-columns: 1fr; }
+}
 .card h2 { margin: 0 0 8px; font-size: 1.3rem; }
 .card p { color: var(--muted); font-size: 0.92rem; line-height: 1.45; margin: 0 0 12px; }
 .card b { color: var(--glow); font-weight: 700; }
@@ -640,6 +661,12 @@ body {
 .leaderboard li.you { background: rgba(255, 178, 77, 0.14); }
 .leaderboard li.you::before,
 .leaderboard li.you .lb-score { color: var(--cas9); }
+/* Two columns of one-line board rows do not fit a phone-width card, so the
+   top ten runs as a single column there; the overlay scrolls anyway. This
+   sits after the base rule on purpose: same specificity, so order decides. */
+@media (max-width: 560px) {
+  .leaderboard ol { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-flow: row; }
+}
 
 /* ---------- achievements ---------- */
 .achievements-earned {
@@ -659,9 +686,32 @@ body {
   padding-bottom: 4px;
 }
 
+/* All six, as tiles: two across, three down, beside the top ten. Locked
+   tiles keep their description on show, because "how do I get that one" is
+   the point of listing them. */
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
 .achievement {
-  padding: 4px 0;
+  padding: 5px 4px;
   text-align: center;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(46, 230, 200, 0.07);
+}
+.achievement.locked {
+  opacity: 0.6;
+  background: transparent;
+  border-color: var(--panel-line);
+  border-style: dashed;
+}
+.achievement.locked .achievement-name { color: var(--muted); }
+.achievement.new {
+  background: rgba(255, 178, 77, 0.12);
+  border-color: var(--cas9);
 }
 
 .achievement-new {
@@ -681,12 +731,13 @@ body {
 .achievement-name {
   font-weight: 700;
   color: var(--glow);
-  font-size: 0.95rem;
-  margin-bottom: 2px;
+  font-size: 0.74rem;
+  margin-bottom: 1px;
 }
 
 .achievement-desc {
-  font-size: 0.8rem;
+  font-size: 0.62rem;
+  line-height: 1.3;
   color: var(--muted);
 }
 
@@ -703,6 +754,11 @@ body {
 .card-hint { font-size: 0.8rem; opacity: 0.85; }
 
 /* ---------- utility classes ---------- */
+/* visually hidden, still read by screen readers */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 .hidden {
   display: none !important;
 }

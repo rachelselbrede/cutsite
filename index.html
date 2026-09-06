@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=13" />
+  <link rel="stylesheet" href="style.css?v=14" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -146,7 +146,12 @@
             <div><span class="scoreline-num" id="final-acc">0%</span><span class="scoreline-lbl">accuracy</span></div>
             <div><span class="scoreline-num scoreline-warn" id="final-off">0</span><span class="scoreline-lbl">off&#8209;target</span></div>
           </div>
-          <div id="leaderboard" class="leaderboard"></div>
+          <!-- Achievements and the top ten side by side at desktop widths, so the
+               card stays inside the stage; narrow screens stack them. -->
+          <div class="end-body">
+            <div id="achievements" class="achievements-earned"></div>
+            <div id="leaderboard" class="leaderboard"></div>
+          </div>
           <p id="end-note" class="end-note"></p>
           <button class="btn" id="again-btn">Edit again</button>
         </div>
@@ -158,6 +163,6 @@
     </footer>
   </main>
 
-  <script src="script.js?v=13"></script>
+  <script src="script.js?v=14"></script>
 </body>
 </html>

@@ -27,7 +27,8 @@ no build step. To run it locally, open `index.html` in a browser.
 - **Leaderboards** — top 10 per mode, each with the accuracy and date that
   earned it, and the round you just played highlighted so you can see where it
   landed. Kept in browser storage; boards from older versions upgrade in place.
-- **Achievements** — six unlockables that persist across sessions.
+- **Achievements** — six unlockables that persist across sessions. The end card
+  lists all six, with locked ones dimmed and showing how to earn them.
 - **Feedback** — screen shake on fast cuts, particle bursts, synthesised sound
   (no audio files), and a live accuracy readout.
 - **Plays on a phone** — the strand shortens on narrow screens so every base pair
@@ -123,7 +124,7 @@ in a real browser: `tests/run.py` serves the repo, copies `index.html` with
 `tests/suite.js` injected just after `script.js` — so the tests share the
 game's own scope — and reads the results back out of headless Chrome.
 
-Most of the 52 tests guard the biology, because that is the part of this
+Most of the 54 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a

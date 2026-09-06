@@ -129,6 +129,7 @@ const el = {
   finalCuts: document.getElementById("final-cuts"),
   finalAcc: document.getElementById("final-acc"),
   finalOff: document.getElementById("final-off"),
+  achievements: document.getElementById("achievements"),
   leaderboard: document.getElementById("leaderboard"),
   endTitle: document.getElementById("end-title"),
   endNote: document.getElementById("end-note"),
@@ -332,26 +333,11 @@ function endGame() {
   el.endTitle.textContent = isRecord ? "New personal best" : "Round complete";
   el.endNote.textContent = endMessage(state.cuts, accuracy, isRecord);
 
-  // Display achievements (remove any panel left over from a previous round)
-  const staleAchievements = el.cardEnd.querySelector(".achievements-earned");
-  if (staleAchievements) staleAchievements.remove();
-
-  const unlocked = loadUnlockedAchievements();
-  const totalAchievements = Object.keys(ACHIEVEMENTS).length;
   // Newly unlocked this round = earned now but not owned before the round started.
   const newlyUnlocked = state.earnedAchievements.filter(
     (id) => !state.previouslyUnlocked.includes(id)
   );
-
-  const achievementsDiv = document.createElement("div");
-  achievementsDiv.className = "achievements-earned";
-  let achHTML = `<div class="achievement-progress">🏆 ${unlocked.length} / ${totalAchievements} achievements unlocked</div>`;
-  achHTML += newlyUnlocked.map((id) => {
-    const ach = ACHIEVEMENTS[id];
-    return `<div class="achievement"><div class="achievement-name">${ach.name} <span class="achievement-new">NEW</span></div><div class="achievement-desc">${ach.desc}</div></div>`;
-  }).join("");
-  achievementsDiv.innerHTML = achHTML;
-  el.cardEnd.insertBefore(achievementsDiv, el.cardEnd.querySelector(".scoreline"));
+  renderAchievements(newlyUnlocked);
 
   // Populate leaderboard for the mode just played
   renderLeaderboard(mode, saved);
@@ -991,6 +977,32 @@ function unlockAchievement(achievementId) {
     state.earnedAchievements.push(achievementId);
   }
   persistAchievement(achievementId);
+}
+
+// The end card lists every achievement, not just the ones this round
+// earned. Locked ones sit dimmed with the way to earn them, so a player can
+// see what is left instead of discovering trophies by accident.
+function renderAchievements(newlyUnlocked) {
+  const unlocked = loadUnlockedAchievements();
+  const ids = Object.keys(ACHIEVEMENTS);
+  const tiles = ids.map((id) => {
+    const a = ACHIEVEMENTS[id];
+    const isNew = newlyUnlocked.includes(id);
+    const isUnlocked = unlocked.includes(id);
+    const status = isNew ? "new" : isUnlocked ? "unlocked" : "locked";
+    // The lock glyph is decoration; the words are what a screen reader gets.
+    const mark = isUnlocked
+      ? '<span class="sr-only">Unlocked: </span>'
+      : '<span class="sr-only">Locked: </span><span aria-hidden="true">\u{1F512} </span>';
+    const badge = isNew ? ' <span class="achievement-new">NEW</span>' : "";
+    return `<div class="achievement ${status}">` +
+      `<div class="achievement-name">${mark}${a.name}${badge}</div>` +
+      `<div class="achievement-desc">${a.desc}</div></div>`;
+  }).join("");
+
+  el.achievements.innerHTML =
+    `<div class="achievement-progress">\u{1F3C6} ${unlocked.length} / ${ids.length} achievements unlocked</div>` +
+    `<div class="achievement-grid">${tiles}</div>`;
 }
 
 function checkAchievements() {

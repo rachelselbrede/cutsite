@@ -536,6 +536,43 @@
        "achievement was stored twice");
   });
 
+  test("end card: every achievement is listed, locked ones with how to earn them", function () {
+    localStorage.clear();
+    const t = freeze("classic");
+    click(cols()[t.start]);          // earns First Blood
+    endGame();
+    const ids = Object.keys(ACHIEVEMENTS);
+    const tiles = Array.from(el.cardEnd.querySelectorAll(".achievement"));
+    eq(tiles.length, ids.length, "one tile per achievement");
+    const fresh = tiles.filter(function (x) { return x.classList.contains("new"); });
+    eq(fresh.length, 1, "exactly one tile is new");
+    assert(/First Blood/.test(fresh[0].textContent), "the new tile is First Blood");
+    assert(fresh[0].querySelector(".achievement-new"), "the new tile carries a NEW badge");
+    const locked = tiles.filter(function (x) { return x.classList.contains("locked"); });
+    eq(locked.length, ids.length - 1, "every other tile is locked");
+    locked.forEach(function (x) {
+      const id = ids.find(function (k) { return x.textContent.indexOf(ACHIEVEMENTS[k].name) >= 0; });
+      assert(id, "a locked tile should name its achievement");
+      assert(x.textContent.indexOf(ACHIEVEMENTS[id].desc) >= 0, "a locked tile should say how to earn it: " + id);
+      assert(/Locked:/.test(x.textContent), "a locked tile should say so to screen readers");
+    });
+    assert(/1 \/ 6/.test(el.cardEnd.querySelector(".achievement-progress").textContent), "progress should read 1 / 6");
+  });
+
+  test("end card: an achievement from an earlier round shows unlocked, not new", function () {
+    localStorage.clear();
+    persistAchievement("firstBlood");
+    const t = freeze("classic");
+    click(cols()[t.start]);
+    endGame();
+    const tiles = Array.from(el.cardEnd.querySelectorAll(".achievement"));
+    eq(tiles.filter(function (x) { return x.classList.contains("new"); }).length, 0, "nothing should be new");
+    const fb = tiles.find(function (x) { return /First Blood/.test(x.textContent); });
+    assert(fb.classList.contains("unlocked"), "First Blood should show as unlocked");
+    assert(!fb.querySelector(".achievement-new"), "and carry no NEW badge");
+    assert(/Unlocked:/.test(fb.textContent), "and say so to screen readers");
+  });
+
   test("achievements: the first cut of a round unlocks First Blood", function () {
     localStorage.clear();
     const t = freeze("classic");

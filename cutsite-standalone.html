@@ -496,6 +496,27 @@ body {
   padding: 14px 12px;
 }
 .card.hidden { display: none; }
+
+/* The end card is wider than the start card: its achievements and the top
+   ten sit side by side, which is what keeps it inside the stage with no
+   scrolling once both are on show. Narrow screens stack them and scroll. */
+#card-end { width: min(700px, 95%); }
+.end-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: start;
+  margin: 4px 0 6px;
+}
+/* Grid children default to min-width: auto, which lets a block wider than
+   its column push the whole body past the card edge instead of shrinking. */
+.end-body > * { min-width: 0; }
+.end-body .achievements-earned,
+.end-body .leaderboard { margin: 0; }
+@media (max-width: 720px) {
+  #card-end { width: min(460px, 95%); }
+  .end-body { grid-template-columns: 1fr; }
+}
 .card h2 { margin: 0 0 8px; font-size: 1.3rem; }
 .card p { color: var(--muted); font-size: 0.92rem; line-height: 1.45; margin: 0 0 12px; }
 .card b { color: var(--glow); font-weight: 700; }
@@ -676,6 +697,12 @@ body {
 .leaderboard li.you { background: rgba(255, 178, 77, 0.14); }
 .leaderboard li.you::before,
 .leaderboard li.you .lb-score { color: var(--cas9); }
+/* Two columns of one-line board rows do not fit a phone-width card, so the
+   top ten runs as a single column there; the overlay scrolls anyway. This
+   sits after the base rule on purpose: same specificity, so order decides. */
+@media (max-width: 560px) {
+  .leaderboard ol { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-flow: row; }
+}
 
 /* ---------- achievements ---------- */
 .achievements-earned {
@@ -695,9 +722,32 @@ body {
   padding-bottom: 4px;
 }
 
+/* All six, as tiles: two across, three down, beside the top ten. Locked
+   tiles keep their description on show, because "how do I get that one" is
+   the point of listing them. */
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
 .achievement {
-  padding: 4px 0;
+  padding: 5px 4px;
   text-align: center;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(46, 230, 200, 0.07);
+}
+.achievement.locked {
+  opacity: 0.6;
+  background: transparent;
+  border-color: var(--panel-line);
+  border-style: dashed;
+}
+.achievement.locked .achievement-name { color: var(--muted); }
+.achievement.new {
+  background: rgba(255, 178, 77, 0.12);
+  border-color: var(--cas9);
 }
 
 .achievement-new {
@@ -717,12 +767,13 @@ body {
 .achievement-name {
   font-weight: 700;
   color: var(--glow);
-  font-size: 0.95rem;
-  margin-bottom: 2px;
+  font-size: 0.74rem;
+  margin-bottom: 1px;
 }
 
 .achievement-desc {
-  font-size: 0.8rem;
+  font-size: 0.62rem;
+  line-height: 1.3;
   color: var(--muted);
 }
 
@@ -739,6 +790,11 @@ body {
 .card-hint { font-size: 0.8rem; opacity: 0.85; }
 
 /* ---------- utility classes ---------- */
+/* visually hidden, still read by screen readers */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 .hidden {
   display: none !important;
 }
@@ -868,7 +924,12 @@ body {
             <div><span class="scoreline-num" id="final-acc">0%</span><span class="scoreline-lbl">accuracy</span></div>
             <div><span class="scoreline-num scoreline-warn" id="final-off">0</span><span class="scoreline-lbl">off&#8209;target</span></div>
           </div>
-          <div id="leaderboard" class="leaderboard"></div>
+          <!-- Achievements and the top ten side by side at desktop widths, so the
+               card stays inside the stage; narrow screens stack them. -->
+          <div class="end-body">
+            <div id="achievements" class="achievements-earned"></div>
+            <div id="leaderboard" class="leaderboard"></div>
+          </div>
           <p id="end-note" class="end-note"></p>
           <button class="btn" id="again-btn">Edit again</button>
         </div>
@@ -1012,6 +1073,7 @@ const el = {
   finalCuts: document.getElementById("final-cuts"),
   finalAcc: document.getElementById("final-acc"),
   finalOff: document.getElementById("final-off"),
+  achievements: document.getElementById("achievements"),
   leaderboard: document.getElementById("leaderboard"),
   endTitle: document.getElementById("end-title"),
   endNote: document.getElementById("end-note"),
@@ -1215,26 +1277,11 @@ function endGame() {
   el.endTitle.textContent = isRecord ? "New personal best" : "Round complete";
   el.endNote.textContent = endMessage(state.cuts, accuracy, isRecord);
 
-  // Display achievements (remove any panel left over from a previous round)
-  const staleAchievements = el.cardEnd.querySelector(".achievements-earned");
-  if (staleAchievements) staleAchievements.remove();
-
-  const unlocked = loadUnlockedAchievements();
-  const totalAchievements = Object.keys(ACHIEVEMENTS).length;
   // Newly unlocked this round = earned now but not owned before the round started.
   const newlyUnlocked = state.earnedAchievements.filter(
     (id) => !state.previouslyUnlocked.includes(id)
   );
-
-  const achievementsDiv = document.createElement("div");
-  achievementsDiv.className = "achievements-earned";
-  let achHTML = `<div class="achievement-progress">🏆 ${unlocked.length} / ${totalAchievements} achievements unlocked</div>`;
-  achHTML += newlyUnlocked.map((id) => {
-    const ach = ACHIEVEMENTS[id];
-    return `<div class="achievement"><div class="achievement-name">${ach.name} <span class="achievement-new">NEW</span></div><div class="achievement-desc">${ach.desc}</div></div>`;
-  }).join("");
-  achievementsDiv.innerHTML = achHTML;
-  el.cardEnd.insertBefore(achievementsDiv, el.cardEnd.querySelector(".scoreline"));
+  renderAchievements(newlyUnlocked);
 
   // Populate leaderboard for the mode just played
   renderLeaderboard(mode, saved);
@@ -1874,6 +1921,32 @@ function unlockAchievement(achievementId) {
     state.earnedAchievements.push(achievementId);
   }
   persistAchievement(achievementId);
+}
+
+// The end card lists every achievement, not just the ones this round
+// earned. Locked ones sit dimmed with the way to earn them, so a player can
+// see what is left instead of discovering trophies by accident.
+function renderAchievements(newlyUnlocked) {
+  const unlocked = loadUnlockedAchievements();
+  const ids = Object.keys(ACHIEVEMENTS);
+  const tiles = ids.map((id) => {
+    const a = ACHIEVEMENTS[id];
+    const isNew = newlyUnlocked.includes(id);
+    const isUnlocked = unlocked.includes(id);
+    const status = isNew ? "new" : isUnlocked ? "unlocked" : "locked";
+    // The lock glyph is decoration; the words are what a screen reader gets.
+    const mark = isUnlocked
+      ? '<span class="sr-only">Unlocked: </span>'
+      : '<span class="sr-only">Locked: </span><span aria-hidden="true">\u{1F512} </span>';
+    const badge = isNew ? ' <span class="achievement-new">NEW</span>' : "";
+    return `<div class="achievement ${status}">` +
+      `<div class="achievement-name">${mark}${a.name}${badge}</div>` +
+      `<div class="achievement-desc">${a.desc}</div></div>`;
+  }).join("");
+
+  el.achievements.innerHTML =
+    `<div class="achievement-progress">\u{1F3C6} ${unlocked.length} / ${ids.length} achievements unlocked</div>` +
+    `<div class="achievement-grid">${tiles}</div>`;
 }
 
 function checkAchievements() {
