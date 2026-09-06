@@ -607,7 +607,8 @@ body {
   margin-bottom: 8px;
 }
 .leaderboard ol {
-  list-style-position: inside;
+  list-style: none;
+  counter-reset: rank;
   margin: 0;
   padding: 0;
   /* Five rows in two columns: a full top ten in half the height, so the card
@@ -616,15 +617,29 @@ body {
   grid-template-rows: repeat(5, auto);
   grid-auto-flow: column;
   column-gap: 14px;
-  text-align: center;
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--glow);
 }
+/* rank.  score  ........  accuracy · date */
 .leaderboard li {
-  padding: 1px 0;
+  counter-increment: rank;
+  display: grid;
+  grid-template-columns: 1.4em auto 1fr;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 4px;
+  border-radius: 6px;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
+.leaderboard li::before { content: counter(rank) "."; color: var(--muted); text-align: right; }
+.lb-score { font-weight: 700; }
+.lb-meta { color: var(--muted); font-size: 0.66rem; text-align: right; }
+/* the round just played, so you can see where it landed */
+.leaderboard li.you { background: rgba(255, 178, 77, 0.14); }
+.leaderboard li.you::before,
+.leaderboard li.you .lb-score { color: var(--cas9); }
 
 /* ---------- achievements ---------- */
 .achievements-earned {

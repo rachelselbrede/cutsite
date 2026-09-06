@@ -309,12 +309,18 @@ function endGame() {
   const mode = state.gameMode;
   const best = getBestScore(mode);
   const isRecord = state.score > best;
-  saveScore(state.score, mode);
-  if (el.best) el.best.textContent = getBestScore(mode);
 
   const accuracy = state.cuts + state.misses === 0
     ? 0
     : Math.round((state.cuts / (state.cuts + state.misses)) * 100);
+
+  // The board keeps the round, not just its number, so a score can be read
+  // back later with the accuracy and date that earned it.
+  const saved = saveScore({
+    score: state.score, cuts: state.cuts, accuracy, maxCombo: state.maxCombo,
+    offTargets: state.offTargets, date: new Date().toISOString(),
+  }, mode);
+  if (el.best) el.best.textContent = getBestScore(mode);
 
   // Check for achievements
   checkAchievements();
@@ -348,13 +354,7 @@ function endGame() {
   el.cardEnd.insertBefore(achievementsDiv, el.cardEnd.querySelector(".scoreline"));
 
   // Populate leaderboard for the mode just played
-  const scores = loadScores(mode);
-  const boardLabel = (MODES[mode] || MODES.classic).label;
-  const leaderboardHTML = scores.slice(0, 10).map((s) =>
-    `<li>${s.toLocaleString()}</li>`
-  ).join("");
-  el.leaderboard.innerHTML =
-    `<div class="leaderboard-title">${boardLabel} — top scores</div><ol>${leaderboardHTML}</ol>`;
+  renderLeaderboard(mode, saved);
 
   el.cardStart.classList.add("hidden");
   el.cardEnd.classList.remove("hidden");
@@ -1038,8 +1038,8 @@ function migrateLegacyScores() {
 
     const existing = JSON.parse(localStorage.getItem(scoresKey("classic")) || "[]");
     const combined = existing.concat(migrated)
-      .filter((n) => Number.isFinite(n))
-      .sort((a, b) => b - a)
+      .map(normalizeEntry).filter(Boolean)
+      .sort((a, b) => b.score - a.score)
       .slice(0, 10);
     localStorage.setItem(scoresKey("classic"), JSON.stringify(combined));
     localStorage.removeItem("cutsite-best");
@@ -1048,28 +1048,86 @@ function migrateLegacyScores() {
   catch (e) { /* ignore migration failures */ }
 }
 
+// A board entry is { score, cuts, accuracy, maxCombo, offTargets, date }.
+// Earlier versions stored bare numbers. Those are upgraded to { score } on
+// load and written back once, so an old board keeps every score it had and
+// only lacks the detail newer rounds carry.
+function normalizeEntry(raw) {
+  if (typeof raw === "number" && Number.isFinite(raw)) return { score: raw };
+  if (raw && typeof raw === "object" && Number.isFinite(raw.score)) return raw;
+  return null;
+}
+
 function loadScores(mode) {
   try {
     migrateLegacyScores();
-    const scores = JSON.parse(localStorage.getItem(scoresKey(mode)) || "[]");
-    return Array.isArray(scores) ? scores : [];
+    const key = scoresKey(mode);
+    const raw = JSON.parse(localStorage.getItem(key) || "[]");
+    if (!Array.isArray(raw)) return [];
+    const entries = raw.map(normalizeEntry).filter(Boolean)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+    if (raw.some((x) => typeof x === "number")) {
+      localStorage.setItem(key, JSON.stringify(entries));
+    }
+    return entries;
   }
   catch (e) { return []; }
 }
 
-function saveScore(value, mode) {
+// Returns the entry as stored, so the caller can find it on the board.
+function saveScore(entry, mode) {
+  const saved = normalizeEntry(entry);
+  if (!saved) return null;
   try {
-    const scores = loadScores(mode);
-    scores.push(value);
-    scores.sort((a, b) => b - a); // sort descending
-    localStorage.setItem(scoresKey(mode), JSON.stringify(scores.slice(0, 10))); // keep top 10
+    const entries = loadScores(mode);
+    entries.push(saved);
+    entries.sort((a, b) => b.score - a.score); // stable: an equal score ranks below the older one
+    localStorage.setItem(scoresKey(mode), JSON.stringify(entries.slice(0, 10)));
   }
   catch (e) { /* private mode: skip saving */ }
+  return saved;
 }
 
 function getBestScore(mode) {
-  const scores = loadScores(mode);
-  return scores.length > 0 ? scores[0] : 0;
+  const entries = loadScores(mode);
+  return entries.length > 0 ? entries[0].score : 0;
+}
+
+// ---------- leaderboard rendering ----------
+function formatEntryDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const opts = { month: "short", day: "numeric" };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString(undefined, opts);
+}
+
+// One row per entry: rank, score, then accuracy and date. Cuts, best combo
+// and off-target count ride along in the tooltip so the row stays one line
+// and the card keeps fitting. The round just played is marked so you can
+// see where it landed.
+function renderLeaderboard(modeName, justSaved) {
+  const entries = loadScores(modeName);
+  const label = (MODES[modeName] || MODES.classic).label;
+  const rows = entries.map((e) => {
+    const isYou = !!justSaved && e.date === justSaved.date && e.score === justSaved.score;
+    const meta = [];
+    if (Number.isFinite(e.accuracy)) meta.push(e.accuracy + "%");
+    const when = formatEntryDate(e.date);
+    if (when) meta.push(when);
+    const detail = [];
+    if (Number.isFinite(e.cuts)) detail.push(e.cuts + (e.cuts === 1 ? " cut" : " cuts"));
+    if (Number.isFinite(e.maxCombo)) detail.push("best combo \u00d7" + e.maxCombo);
+    if (Number.isFinite(e.offTargets)) detail.push(e.offTargets + " off-target");
+    const title = detail.length ? ` title="${detail.join(" · ")}"` : "";
+    return `<li${isYou ? ' class="you"' : ""}${title}>` +
+      `<span class="lb-score">${e.score.toLocaleString()}</span>` +
+      `<span class="lb-meta">${meta.length ? meta.join(" · ") : "—"}</span></li>`;
+  }).join("");
+  el.leaderboard.innerHTML =
+    `<div class="leaderboard-title">${label} — top scores</div><ol>${rows}</ol>`;
 }
 
 // Display difficulty indicator: how far the window has closed, from the

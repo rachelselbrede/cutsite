@@ -464,9 +464,9 @@
     for (let i = 1; i <= 15; i++) saveScore(i * 100, "classic");
     const board = loadScores("classic");
     eq(board.length, 10, "board length");
-    eq(board[0], 1500, "highest score first");
+    eq(board[0].score, 1500, "highest score first");
     for (let i = 1; i < board.length; i++) {
-      assert(board[i - 1] >= board[i], "board is not sorted descending");
+      assert(board[i - 1].score >= board[i].score, "board is not sorted descending");
     }
   });
 
@@ -475,10 +475,56 @@
     localStorage.setItem("cutsite-scores", JSON.stringify([300, 100]));
     localStorage.setItem("cutsite-best", "900");
     const board = loadScores("classic");
-    eq(board[0], 900, "the old best should survive migration");
-    assert(board.includes(300) && board.includes(100), "old scores should survive migration");
+    eq(board[0].score, 900, "the old best should survive migration");
+    const has = function (n) { return board.some(function (e) { return e.score === n; }); };
+    assert(has(300) && has(100), "old scores should survive migration");
     eq(localStorage.getItem("cutsite-best"), null, "the legacy key should be cleared");
     eq(localStorage.getItem("cutsite-scores"), null, "the legacy key should be cleared");
+  });
+
+  test("storage: an entry keeps the round's accuracy, cuts and date", function () {
+    localStorage.clear();
+    saveScore({ score: 300, cuts: 5, accuracy: 80, maxCombo: 3, offTargets: 1,
+                date: "2026-09-01T12:00:00.000Z" }, "classic");
+    saveScore({ score: 900, cuts: 12, accuracy: 95, maxCombo: 7, offTargets: 0,
+                date: "2026-09-02T12:00:00.000Z" }, "classic");
+    const board = loadScores("classic");
+    eq(board[0].score, 900, "highest first");
+    eq(board[0].accuracy, 95, "accuracy kept");
+    eq(board[0].cuts, 12, "cuts kept");
+    eq(board[0].maxCombo, 7, "best combo kept");
+    eq(board[0].date, "2026-09-02T12:00:00.000Z", "date kept");
+    eq(getBestScore("classic"), 900, "the best score is still a plain number");
+  });
+
+  test("storage: an old board of bare numbers is upgraded in place", function () {
+    localStorage.clear();
+    localStorage.setItem(scoresKey("classic"), JSON.stringify([500, 200, 800]));
+    const board = loadScores("classic");
+    eq(board.length, 3, "nothing lost");
+    eq(board[0].score, 800, "still sorted, highest first");
+    eq(typeof board[1], "object", "entries are objects now");
+    const stored = JSON.parse(localStorage.getItem(scoresKey("classic")));
+    eq(typeof stored[0], "object", "the upgrade should be written back");
+    eq(getBestScore("classic"), 800, "the best score survives the upgrade");
+  });
+
+  test("end card: this round's row is highlighted, with its accuracy and date", function () {
+    localStorage.clear();
+    saveScore({ score: 99999, cuts: 40, accuracy: 100, date: "2026-01-01T00:00:00.000Z" }, "classic");
+    const t = freeze("classic");
+    click(cols()[t.start]);
+    endGame();
+    const rows = Array.from(el.leaderboard.querySelectorAll("li"));
+    eq(rows.length, 2, "two rows on the board");
+    const you = el.leaderboard.querySelectorAll("li.you");
+    eq(you.length, 1, "exactly one row is yours");
+    assert(rows[1] === you[0], "your row should rank below the older, higher score");
+    assert(/100%/.test(you[0].textContent), "your row should show this round's accuracy");
+    assert(you[0].textContent.indexOf(formatEntryDate(new Date().toISOString())) >= 0,
+           "your row should carry today's date");
+    assert(/\b1 cut\b/.test(you[0].getAttribute("title")), "the tooltip should carry the cut count");
+    assert(!/\byou\b/.test(rows[0].className), "the older row must not be marked as yours");
   });
 
   test("storage: unlocked achievements persist", function () {
