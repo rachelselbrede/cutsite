@@ -896,6 +896,8 @@ const CONFIG = {
   comboCap: 10,          // combo multiplier stops climbing here
   windowStart: 1500,     // ms you get to click an early target
   windowMin: 650,        // ms window once you are fully warmed up
+  rampCuts: 25,          // cuts it takes to get from windowStart to windowMin
+  lateRampCuts: 50,      // time constant of the slow squeeze past that (zen)
   gapAfterHit: 420,      // pause before the next target appears
   gapAfterMiss: 650,
   lockoutMs: 450,        // blades jam this long after an off-target cut
@@ -905,13 +907,20 @@ const CONFIG = {
 // windows. Guide RNA mode lights several sites at once and only the one
 // matching the displayed guide beside a real NGG is cuttable, so it trades
 // speed for reading time and a longer round.
+// windowFloor is where the squeeze past the ramp ends. Classic keeps its
+// floor at windowMin so nothing past 25 cuts changes and its leaderboard
+// stays comparable; Guide RNA is a reading mode and should not turn into a
+// reflex test; Zen is the one that goes on tightening.
 const MODES = {
   classic: { label: "Classic", timed: true, roundSeconds: CONFIG.roundSeconds,
-             windowStart: CONFIG.windowStart, windowMin: CONFIG.windowMin, decoys: () => 0 },
+             windowStart: CONFIG.windowStart, windowMin: CONFIG.windowMin,
+             windowFloor: CONFIG.windowMin, decoys: () => 0 },
   zen:     { label: "Zen", timed: false, roundSeconds: 0,
-             windowStart: CONFIG.windowStart, windowMin: CONFIG.windowMin, decoys: () => 0 },
+             windowStart: CONFIG.windowStart, windowMin: CONFIG.windowMin,
+             windowFloor: 400, decoys: () => 0 },
   guide:   { label: "Guide RNA", timed: true, roundSeconds: 45,
-             windowStart: 4000, windowMin: 1800, decoys: (cuts) => (cuts < 8 ? 1 : 2) },
+             windowStart: 4000, windowMin: 1800,
+             windowFloor: 1800, decoys: (cuts) => (cuts < 8 ? 1 : 2) },
 };
 function mode() {
   return MODES[state.gameMode] || MODES.classic;
@@ -1630,10 +1639,24 @@ function registerHit(col) {
 }
 
 // difficulty: the window shrinks as you land more cuts
+// difficulty: the window shrinks as you land more cuts.
+// The ramp reaches the mode's windowMin at rampCuts, which is about as far
+// as a Classic round gets. Zen is endless and used to sit flat there
+// forever: every cut past 25 was identical, and the Zen board measured
+// nothing but who played longest. So past the ramp the window keeps
+// easing down - exponentially, so it is never a cliff - toward the mode's
+// floor, which for Zen is tough enough to break a combo eventually and
+// never so tight as to be impossible.
 function currentWindow() {
   const m = mode();
-  const ramp = Math.min(1, state.cuts / 25);
-  return Math.round(m.windowStart - (m.windowStart - m.windowMin) * ramp);
+  const ramp = Math.min(1, state.cuts / CONFIG.rampCuts);
+  let w = m.windowStart - (m.windowStart - m.windowMin) * ramp;
+  if (state.cuts > CONFIG.rampCuts) {
+    const beyond = state.cuts - CONFIG.rampCuts;
+    const squeeze = 1 - Math.exp(-beyond / CONFIG.lateRampCuts);
+    w = m.windowMin - (m.windowMin - m.windowFloor) * squeeze;
+  }
+  return Math.round(w);
 }
 
 // ---------- 8. SOUND (synthesised, no files) ----------
@@ -1917,10 +1940,14 @@ function getBestScore(mode) {
   return scores.length > 0 ? scores[0] : 0;
 }
 
-// Display difficulty indicator
+// Display difficulty indicator: how far the window has closed, from the
+// mode's opening width to its floor. Reading it off the window rather than
+// the cut count is what stops it parking at 100% in Zen.
 function getDifficultyLevel() {
-  const ramp = Math.min(1, state.cuts / 25);
-  return Math.round(ramp * 100);
+  const m = mode();
+  const span = m.windowStart - m.windowFloor;
+  if (span <= 0) return 0;
+  return Math.round(((m.windowStart - currentWindow()) / span) * 100);
 }
 
 // Spacebar to restart game (press during game over screen)

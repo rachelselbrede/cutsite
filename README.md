@@ -18,7 +18,8 @@ no build step. To run it locally, open `index.html` in a browser.
 ## Modes and features
 
 - **Classic** — 30-second rounds; the reaction window tightens as you land cuts.
-- **Zen** — endless practice, no clock.
+- **Zen** — endless practice, no clock. The reaction window keeps tightening,
+  slowly and forever, so a long run eventually has to earn its combo.
 - **Guide RNA** — 45-second rounds where decoy sites fluoresce alongside the real
   one. Read the guide and cut only the site that matches it beside a genuine `NGG`.
 - **Off-target penalty** — cutting anything else resets your combo and jams the
@@ -120,7 +121,7 @@ in a real browser: `tests/run.py` serves the repo, copies `index.html` with
 `tests/suite.js` injected just after `script.js` — so the tests share the
 game's own scope — and reads the results back out of headless Chrome.
 
-Most of the 40 tests guard the biology, because that is the part of this
+Most of the 49 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a

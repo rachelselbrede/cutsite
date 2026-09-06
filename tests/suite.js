@@ -304,6 +304,49 @@
     eq(currentWindow(), MODES.classic.windowStart, "classic should open with its own window");
   });
 
+  test("difficulty: classic reaches its floor at the ramp and stays there", function () {
+    state.gameMode = "classic";
+    state.cuts = 0;   eq(currentWindow(), MODES.classic.windowStart, "opening window");
+    state.cuts = 25;  eq(currentWindow(), MODES.classic.windowMin, "at the end of the ramp");
+    state.cuts = 200; eq(currentWindow(), MODES.classic.windowMin,
+                         "classic must not change past the ramp: its leaderboard depends on it");
+    eq(getDifficultyLevel(), 100, "classic shows 100% once the ramp is done");
+  });
+
+  test("difficulty: zen keeps tightening past the ramp, toward a floor it never breaks", function () {
+    state.gameMode = "zen";
+    state.cuts = 25;  const atRamp = currentWindow();
+    eq(atRamp, MODES.zen.windowMin, "zen matches classic up to the end of the ramp");
+    let prev = atRamp;
+    for (let c = 26; c <= 400; c++) {
+      state.cuts = c;
+      const w = currentWindow();
+      assert(w <= prev, "the window widened again at cut " + c);
+      assert(w >= MODES.zen.windowFloor, "the window fell through its floor at cut " + c);
+      prev = w;
+    }
+    state.cuts = 100;
+    assert(currentWindow() < atRamp - 100, "a hundred cuts in, zen should be clearly tighter than the ramp's end");
+    state.cuts = 100000;
+    eq(currentWindow(), MODES.zen.windowFloor, "the squeeze converges on the floor");
+  });
+
+  test("difficulty: the HUD percentage keeps climbing in zen past the old cap", function () {
+    state.gameMode = "zen";
+    const at = function (c) { state.cuts = c; return getDifficultyLevel(); };
+    assert(at(25) < 100, "zen is not done at 25 cuts any more");
+    assert(at(25) < at(60), "60 cuts should read harder than 25");
+    assert(at(60) < at(200), "200 cuts should read harder than 60");
+    assert(at(200) <= 100, "and it never reads past 100%");
+  });
+
+  test("difficulty: guide mode is a reading mode and does not squeeze", function () {
+    state.gameMode = "guide";
+    state.cuts = 300;
+    eq(currentWindow(), MODES.guide.windowMin, "guide should stop at its windowMin");
+    state.gameMode = "classic";
+  });
+
   test("modes: zen hides the clock and offers a stop button", function () {
     freeze("zen");
     assert(el.time.closest(".stat").classList.contains("hidden"), "zen should hide the whole time stat");
