@@ -404,6 +404,8 @@ body {
   animation: rise 0.7s ease forwards;
   z-index: 40;
 }
+/* a tolerated off-target cut: same rise, but nothing to celebrate */
+.pop.bad { color: var(--danger); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; }
 @keyframes rise {
   0% { opacity: 0; transform: translate(-50%, 6px); }
   20% { opacity: 1; }

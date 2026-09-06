@@ -440,6 +440,8 @@ body {
   animation: rise 0.7s ease forwards;
   z-index: 40;
 }
+/* a tolerated off-target cut: same rise, but nothing to celebrate */
+.pop.bad { color: var(--danger); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; }
 @keyframes rise {
   0% { opacity: 0; transform: translate(-50%, 6px); }
   20% { opacity: 1; }
@@ -915,12 +917,16 @@ function mode() {
   return MODES[state.gameMode] || MODES.classic;
 }
 
-// Why a decoy is not a real target. Both are the actual reasons Cas9 leaves
-// a site alone: no PAM means it never even unwinds the DNA to check, and a
-// mismatch in the seed (the bases nearest the PAM) stops the guide pairing.
+// Why a decoy is not the right target. The first two are the real reasons
+// Cas9 leaves a site alone: no PAM means it never even unwinds the DNA to
+// check, and a mismatch in the seed (the bases nearest the PAM) stops the
+// guide pairing. The third is different in kind: Cas9 TOLERATES a mismatch
+// far from the PAM and cuts the site regardless. That is the actual
+// off-target problem, and the one the game exists to show.
 const DECOY_MESSAGES = {
   nopam: "Perfect match, but no PAM. Cas9 never cuts without an NGG.",
   seed: "Seed mismatch beside the PAM. The guide can't pair there.",
+  distal: "Cas9 cut it anyway. A mismatch that far from the PAM is tolerated.",
 };
 
 // DNA base pairing. Cas9 needs a PAM immediately 3' of the protospacer.
@@ -1285,13 +1291,21 @@ function spawnTarget() {
   const guide = [];
   for (let i = start; i <= end; i++) guide.push(readBase(i));
 
-  // Decoys carry the same sequence as the guide, then break in one of the two
-  // ways Cas9 really refuses a site. Alternate the kinds so a two-decoy spawn
-  // always shows one of each.
-  const kinds = Math.random() < 0.5 ? ["nopam", "seed"] : ["seed", "nopam"];
+  // Decoys carry the same sequence as the guide, then differ in one of three
+  // ways. "nopam" and "seed" are sites Cas9 refuses. "distal" is a site Cas9
+  // cuts anyway - the one that is hardest to spot, because every base has to
+  // be read, so it joins the pool only once a player has a few cuts in.
+  // The pool is shuffled so a two-decoy spawn always shows two different
+  // kinds and a one-decoy spawn is unpredictable.
+  const pool = state.cuts < 4 ? ["nopam", "seed"] : ["nopam", "seed", "distal"];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const decoyRuns = [];
   starts.slice(1).forEach((s, k) => {
     const e = s + CONFIG.targetLength - 1;
-    const kind = kinds[k % 2];
+    const kind = pool[k % pool.length];
     guide.forEach((b, j) => write(s + j, b));
     if (kind === "nopam") {
       // Any triplet that is not NGG: the last position is forced off G.
@@ -1300,8 +1314,12 @@ function spawnTarget() {
     } else {
       write(e + 2, "G");
       write(e + 3, "G");
-      // One mismatch in the seed: the base right beside the PAM, or the next.
-      const pos = e - Math.floor(Math.random() * 2);
+      // One mismatch. Seed: the base beside the PAM or the next one in. Distal:
+      // the base at the far end or the next one in. The middle base is left
+      // alone so the two kinds never blur into each other.
+      const pos = kind === "seed"
+        ? e - Math.floor(Math.random() * 2)
+        : s + Math.floor(Math.random() * 2);
       write(pos, randomBaseExcept(readBase(pos)));
     }
     for (let i = 1; i <= CONFIG.pamLength; i++) cols[e + i].classList.add("pam");
@@ -1309,6 +1327,7 @@ function spawnTarget() {
       cols[i].classList.add("candidate", "decoy");
       cols[i].dataset.decoy = kind;
     }
+    decoyRuns.push({ start: s, end: e, kind });
   });
 
   // Cas9 makes a blunt double-strand break a fixed 3 bp upstream of the PAM,
@@ -1326,6 +1345,7 @@ function spawnTarget() {
   const windowMs = currentWindow();
   state.activeTarget = {
     start, end, breakIndex, guide, spawnedAt: performance.now(), window: windowMs, restore,
+    decoys: decoyRuns,
   };
   relabelColumns();
   showGuide(guide);
@@ -1390,6 +1410,8 @@ function attemptCut(col) {
 
   if (col.classList.contains("in-target")) {
     registerHit(col);
+  } else if (col.dataset.decoy === "distal") {
+    registerTolerated(col);
   } else if (col.classList.contains("decoy")) {
     registerOffTarget(col, DECOY_MESSAGES[col.dataset.decoy]);
   } else {
@@ -1485,6 +1507,48 @@ function registerOffTarget(col, message) {
   setTimeout(() => el.scissors.classList.remove("jammed"), CONFIG.lockoutMs);
 
   playJam();
+}
+
+// A PAM-distal mismatch is the off-target case that actually happens in a
+// lab: Cas9 tolerates it and cuts. So the blades do not jam - Cas9 refused
+// nothing. The site is cut for real, with the flash, the break line and the
+// snip, and the round's target is spent. Only then does the penalty land:
+// the combo goes, it counts as off-target, and there are no points, because
+// the wrong site got edited. The enzyme does not protect you; the guide
+// design has to.
+function registerTolerated(col) {
+  const t = state.activeTarget;
+  const cols = columns();
+  const index = Number(col.dataset.index);
+  const run = t.decoys.find((d) => index >= d.start && index <= d.end);
+
+  state.misses++;
+  state.offTargets++;
+  state.combo = 1;
+  state.consecutivePerfects = 0;
+  el.combo.textContent = "\u00d71";
+  bump(el.combo);
+  updateAccuracyDisplay();
+
+  // Spend the target before the animations, as registerHit does, so
+  // clearTarget cannot strip them the instant they are added.
+  clearTarget();
+
+  for (let i = run.start; i <= run.end; i++) {
+    cols[i].classList.add("cut");
+    setTimeout(() => cols[i].classList.remove("cut"), 400);
+  }
+  const breakCol = cols[Math.max(run.start, run.end - CONFIG.cutOffsetFromPam + 1)];
+  breakCol.classList.add("cut-site", "breaking");
+  setTimeout(() => breakCol.classList.remove("cut-site", "breaking"), 400);
+  floatPoints(col, "off-target", true);
+
+  // It cut, then it was bad: the snip, and the thunk on its heels.
+  playSnip();
+  setTimeout(playJam, 140);
+
+  setStatus(DECOY_MESSAGES.distal, false);
+  scheduleSpawn(CONFIG.gapAfterMiss);
 }
 
 function registerHit(col) {
@@ -1673,9 +1737,9 @@ function bump(node) {
   node.classList.add("bump");
 }
 
-function floatPoints(col, text) {
+function floatPoints(col, text, bad) {
   const pop = document.createElement("div");
-  pop.className = "pop";
+  pop.className = bad ? "pop bad" : "pop";
   pop.textContent = text;
   const rect = col.getBoundingClientRect();
   const stageRect = el.stage.getBoundingClientRect();
@@ -1684,7 +1748,8 @@ function floatPoints(col, text) {
   el.stage.appendChild(pop);
   setTimeout(() => pop.remove(), 700);
 
-  // particle burst effect
+  // particle burst effect: a celebration, so a bad outcome skips it
+  if (bad) return;
   for (let i = 0; i < 6; i++) {
     const particle = document.createElement("div");
     particle.className = "particle";

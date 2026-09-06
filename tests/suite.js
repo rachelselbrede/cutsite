@@ -220,6 +220,49 @@
     assert(seen > 0, "no seed decoys were generated at all");
   });
 
+  test("guide mode: distal decoys keep an intact PAM and differ by one base far from it", function () {
+    freeze("guide", 10);
+    let seen = 0;
+    for (let n = 0; n < 150; n++) {
+      const t = state.activeTarget, c = cols();
+      decoyRuns().filter(function (r) { return r.kind === "distal"; }).forEach(function (r) {
+        seen++;
+        assert(topOf(c[r.end + 2]) === "G" && topOf(c[r.end + 3]) === "G",
+               "a distal decoy should keep a real NGG: Cas9 has to be willing to cut it");
+        const seq = seqAt(c, r.start, r.end).split("");
+        const diffs = seq.map(function (b, j) { return b === t.guide[j] ? -1 : j; })
+                         .filter(function (j) { return j >= 0; });
+        eq(diffs.length, 1, "a distal decoy should differ from the guide by exactly one base");
+        assert(diffs[0] <= 1, "the mismatch should sit at the far end from the PAM, not at position " + diffs[0]);
+      });
+      clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
+    }
+    assert(seen > 0, "no distal decoys were generated at all");
+  });
+
+  test("guide mode: all three decoy kinds turn up, and never twice in one spawn", function () {
+    freeze("guide", 10);
+    const seenKinds = {};
+    for (let n = 0; n < 150; n++) {
+      const kinds = decoyRuns().map(function (r) { return r.kind; });
+      kinds.forEach(function (k) { seenKinds[k] = true; });
+      eq(new Set(kinds).size, kinds.length, "a spawn repeated a decoy kind");
+      clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
+    }
+    ["nopam", "seed", "distal"].forEach(function (k) {
+      assert(seenKinds[k], "never saw a " + k + " decoy in 150 spawns");
+    });
+  });
+
+  test("guide mode: distal decoys wait until the player has a few cuts", function () {
+    freeze("guide", 0);
+    for (let n = 0; n < 80; n++) {
+      assert(!decoyRuns().some(function (r) { return r.kind === "distal"; }),
+             "a distal decoy appeared before the player had any cuts");
+      clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
+    }
+  });
+
   test("guide mode: sites never overlap and keep a readable gap", function () {
     freeze("guide", 10);
     for (let n = 0; n < 150; n++) {
@@ -326,6 +369,29 @@
       checked++;
     }
     assert(checked > 0, "never managed to cut a decoy");
+  });
+
+  test("off-target: a tolerated site really cuts, then costs you, and never jams", function () {
+    let run = null, tries = 0;
+    while (!run && tries++ < 60) {
+      freeze("guide", 10);
+      run = decoyRuns().find(function (r) { return r.kind === "distal"; }) || null;
+    }
+    assert(run, "never spawned a distal decoy to cut");
+    state.combo = 5;
+    const lockBefore = state.lockedUntil;
+    const cutsBefore = state.cuts, scoreBefore = state.score;
+    click(cols()[run.start]);
+    eq(state.offTargets, 1, "a tolerated cut is still an off-target edit");
+    eq(state.misses, 1, "and still a miss");
+    eq(state.combo, 1, "the combo should be gone");
+    eq(state.cuts, cutsBefore, "it must not count as a cut");
+    eq(state.score, scoreBefore, "it must not score");
+    eq(state.lockedUntil, lockBefore, "Cas9 did not refuse, so the blades must not jam");
+    eq(state.activeTarget, null, "the round's target is spent: the wrong site got edited");
+    eq(el.status.textContent, DECOY_MESSAGES.distal, "the status should say Cas9 cut it anyway");
+    assert(cols()[run.start].classList.contains("cut"), "the site should show the cut flash");
+    clearTimeout(state.timers.spawn);
   });
 
   test("off-target: clicks are ignored while the blades are jammed", function () {

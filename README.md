@@ -63,11 +63,17 @@ This game keeps those ideas and simplifies the rest:
   as RNA, 5' to 3' with U in place of T. It reads the same as the target's
   top strand because that is the strand it *does not* pair with: the guide
   base-pairs with the bottom strand, which is why the top one has to match.
-- In **Guide RNA mode** several sites glow at once and only one is real. The
-  decoys fail the way real sites fail: a perfect sequence match with **no
-  PAM** (Cas9 never even unwinds DNA that lacks an `NGG`), or an intact PAM
-  next to a **seed mismatch** in the bases nearest it, where the guide has to
-  pair or the enzyme lets go. Cutting a decoy counts as off-target.
+- In **Guide RNA mode** several sites glow at once and only one is the right
+  target. Two kinds of decoy fail the way real sites fail: a perfect sequence
+  match with **no PAM** (Cas9 never even unwinds DNA that lacks an `NGG`), or
+  an intact PAM next to a **seed mismatch** in the bases nearest it, where the
+  guide has to pair or the enzyme lets go. Cut either and the blades jam:
+  Cas9 refused.
+- The third kind of decoy is the one that matters in a real lab. A
+  **PAM-distal mismatch** - one wrong base at the far end from a perfectly good
+  PAM - is *tolerated*: Cas9 cuts it anyway. In the game the blades work, the
+  DNA parts, and only then does the penalty land, because that is the actual
+  off-target problem. The enzyme does not protect you; the guide design has to.
 - The target length and the 20-letter guide are shortened so the whole thing
   fits on one screen and stays fun.
 
@@ -118,7 +124,7 @@ Most of the 40 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a
-real PAM, seed decoys differ by exactly one base and always inside the seed,
+real PAM, seed and distal decoys each differ by exactly one base at their own end,
 and clearing a target restores the strand's base composition exactly.
 
 That last one earned its place immediately: it failed on the suite's first run
@@ -131,9 +137,6 @@ single-file copy cannot fall behind the sources again.
 ## Ideas for next versions
 
 - Difficulty levels, a longer genome that scrolls, or a two-player mode.
-- **PAM-distal mismatches** that Cas9 still cuts: the real off-target case,
-  where a site tolerates a mismatch far from the PAM and gets edited anyway.
-  Today's decoys are all sites Cas9 correctly refuses.
 - Other Cas enzymes with their own PAMs (Cas12a's `TTTV`, SaCas9's `NNGRRT`).
 
 ## Credits
