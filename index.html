@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=14" />
+  <link rel="stylesheet" href="style.css?v=15" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -84,6 +84,9 @@
     </section>
 
     <section class="stage" id="stage">
+      <!-- Lives in the stage, not the overlay: the overlay is display:none
+           while a round runs, which is exactly when this has to be reachable. -->
+      <button class="btn hidden" id="stop-btn">Stop Editing</button>
       <div class="status" id="status" role="status" aria-live="polite">Load a guide RNA to begin</div>
       <div class="accuracy-display" id="accuracy-display">Accuracy: —</div>
 
@@ -110,7 +113,6 @@
 
       <!-- Start / game-over overlay -->
       <div class="overlay" id="overlay">
-        <button class="btn hidden" id="stop-btn">Stop Editing</button>
         <div class="card" id="card-start">
           <h2>Ready to edit a genome?</h2>
           <p>
@@ -119,20 +121,21 @@
             as fast as you can. Speed and streaks multiply your score.
           </p>
           <p class="card-warn">
-            Cutting anywhere else is an <b>off-target</b> edit: the combo resets and
-            the blades jam.
+            Cutting anywhere else is an <b>off-target</b> edit: the combo resets and,
+            when Cas9 would have refused the site, the blades jam.
           </p>
           <p>
             <b>Guide RNA</b> mode lights up decoys too. Read the guide and cut only
             the site that matches it beside a real <b>NGG</b> PAM.
           </p>
           <p class="card-hint">
-            Keyboard works too: arrow keys move along the strand, Enter cuts.
+            Keyboard works too: arrow keys move along the strand, Enter cuts,
+            Esc ends a Zen round.
           </p>
-          <div class="mode-selector">
-            <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
-            <button class="mode-btn" data-mode="zen">Zen (endless)</button>
-            <button class="mode-btn" data-mode="guide">Guide RNA (45s)</button>
+          <div class="mode-selector" role="group" aria-label="Game mode">
+            <button class="mode-btn selected" data-mode="classic" aria-pressed="true">Classic (30s)</button>
+            <button class="mode-btn" data-mode="zen" aria-pressed="false">Zen (endless)</button>
+            <button class="mode-btn" data-mode="guide" aria-pressed="false">Guide RNA (45s)</button>
           </div>
           <button class="btn" id="start-btn">Start editing</button>
           <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
@@ -163,6 +166,6 @@
     </footer>
   </main>
 
-  <script src="script.js?v=14"></script>
+  <script src="script.js?v=15"></script>
 </body>
 </html>

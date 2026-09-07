@@ -171,8 +171,6 @@ body {
   justify-content: center;
   overflow: hidden;
   transition: transform 0.08s ease;
-}
-.stage {
   /* rapid tapping must never trigger double-tap zoom, long-press must not
      start selecting base letters, and taps should not flash a highlight */
   touch-action: manipulation;
@@ -763,10 +761,17 @@ body {
   display: none !important;
 }
 
-/* ---------- stop button positioning ---------- */
+/* ---------- stop button ---------- */
+/* Pinned to the stage's corner, above the strand but below nothing that
+   matters: the overlay only shows once the round is over and this is hidden. */
 #stop-btn {
   position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 51;
+  top: 14px;
+  right: 14px;
+  z-index: 40;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+}
+@media (max-width: 560px) {
+  #stop-btn { top: 8px; right: 8px; padding: 6px 10px; font-size: 0.78rem; }
 }

@@ -207,8 +207,6 @@ body {
   justify-content: center;
   overflow: hidden;
   transition: transform 0.08s ease;
-}
-.stage {
   /* rapid tapping must never trigger double-tap zoom, long-press must not
      start selecting base letters, and taps should not flash a highlight */
   touch-action: manipulation;
@@ -799,12 +797,19 @@ body {
   display: none !important;
 }
 
-/* ---------- stop button positioning ---------- */
+/* ---------- stop button ---------- */
+/* Pinned to the stage's corner, above the strand but below nothing that
+   matters: the overlay only shows once the round is over and this is hidden. */
 #stop-btn {
   position: absolute;
-  top: 20px;
-  right: 20px;
-  z-index: 51;
+  top: 14px;
+  right: 14px;
+  z-index: 40;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+}
+@media (max-width: 560px) {
+  #stop-btn { top: 8px; right: 8px; padding: 6px 10px; font-size: 0.78rem; }
 }
   </style>
 </head>
@@ -862,6 +867,9 @@ body {
     </section>
 
     <section class="stage" id="stage">
+      <!-- Lives in the stage, not the overlay: the overlay is display:none
+           while a round runs, which is exactly when this has to be reachable. -->
+      <button class="btn hidden" id="stop-btn">Stop Editing</button>
       <div class="status" id="status" role="status" aria-live="polite">Load a guide RNA to begin</div>
       <div class="accuracy-display" id="accuracy-display">Accuracy: —</div>
 
@@ -888,7 +896,6 @@ body {
 
       <!-- Start / game-over overlay -->
       <div class="overlay" id="overlay">
-        <button class="btn hidden" id="stop-btn">Stop Editing</button>
         <div class="card" id="card-start">
           <h2>Ready to edit a genome?</h2>
           <p>
@@ -897,20 +904,21 @@ body {
             as fast as you can. Speed and streaks multiply your score.
           </p>
           <p class="card-warn">
-            Cutting anywhere else is an <b>off-target</b> edit: the combo resets and
-            the blades jam.
+            Cutting anywhere else is an <b>off-target</b> edit: the combo resets and,
+            when Cas9 would have refused the site, the blades jam.
           </p>
           <p>
             <b>Guide RNA</b> mode lights up decoys too. Read the guide and cut only
             the site that matches it beside a real <b>NGG</b> PAM.
           </p>
           <p class="card-hint">
-            Keyboard works too: arrow keys move along the strand, Enter cuts.
+            Keyboard works too: arrow keys move along the strand, Enter cuts,
+            Esc ends a Zen round.
           </p>
-          <div class="mode-selector">
-            <button class="mode-btn selected" data-mode="classic">Classic (30s)</button>
-            <button class="mode-btn" data-mode="zen">Zen (endless)</button>
-            <button class="mode-btn" data-mode="guide">Guide RNA (45s)</button>
+          <div class="mode-selector" role="group" aria-label="Game mode">
+            <button class="mode-btn selected" data-mode="classic" aria-pressed="true">Classic (30s)</button>
+            <button class="mode-btn" data-mode="zen" aria-pressed="false">Zen (endless)</button>
+            <button class="mode-btn" data-mode="guide" aria-pressed="false">Guide RNA (45s)</button>
           </div>
           <button class="btn" id="start-btn">Start editing</button>
           <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
@@ -947,18 +955,24 @@ body {
    ------------------------------------------------------------
    How a round works:
      1. A strand of DNA is drawn as a row of base pairs.
-     2. Every so often a short window of bases starts to
-        fluoresce (glow) next to a PAM site. That is the target.
-     3. You click the glow before its timer runs out.
-        - A fast click scores more and builds your combo.
+     2. Every so often a short stretch fluoresces beside an NGG
+        PAM: the target. Cut it before its window closes.
+        - A fast cut scores more and builds the combo.
         - Letting it expire breaks the combo.
-        - Cutting plain DNA is an OFF-TARGET cut: it breaks the
-          combo and jams the blades for a moment, so spraying
-          clicks across the strand costs you the round.
-     4. After 30 seconds (classic) or unlimited time (zen)
-        the round ends and your score is saved in the browser.
+        - Cutting anything else is an OFF-TARGET cut: the combo
+          resets and, when Cas9 would have refused the site, the
+          blades jam for a moment.
+     3. Three modes. Classic is 30 seconds. Zen is endless and
+        keeps tightening. Guide RNA is 45 seconds and lights decoy
+        sites too: only the guide's match beside a real NGG is the
+        target. Decoys fail the way real sites fail - no PAM, or a
+        seed mismatch - except the PAM-distal mismatch, which Cas9
+        cuts anyway. That one is the real off-target problem.
+     4. Mouse, touch and keyboard all cut through the same path.
+     5. When the round ends the score joins that mode's board.
    The code is grouped into: config, state, setup, the DNA
-   strand, the target loop, scoring, achievements, sound, and helpers.
+   strand, the target loop, cutting, keyboard, scoring, sound,
+   helpers, achievements, and storage.
    ============================================================ */
 
 // ---------- 1. CONFIG ----------
@@ -977,6 +991,7 @@ const CONFIG = {
   gapAfterHit: 420,      // pause before the next target appears
   gapAfterMiss: 650,
   lockoutMs: 450,        // blades jam this long after an off-target cut
+  speedDemonMs: 250,     // a cut this soon after the glow is a Speed Demon
 };
 
 // Per-mode tuning. Classic and Zen are pure reflex: one glowing site, short
@@ -1045,7 +1060,7 @@ const state = {
 const ACHIEVEMENTS = {
   firstBlood: { id: 'firstBlood', name: 'First Blood', desc: 'Make your first cut' },
   comboMaster: { id: 'comboMaster', name: 'Combo Master', desc: 'Reach a 10+ combo streak' },
-  speedDemon: { id: 'speedDemon', name: 'Speed Demon', desc: 'Score 500+ points on a single cut' },
+  speedDemon: { id: 'speedDemon', name: 'Speed Demon', desc: 'Cut a target within a quarter second of the glow' },
   flawless: { id: 'flawless', name: 'Flawless', desc: '3 consecutive perfect hits' },
   perfect: { id: 'perfect', name: 'Precision', desc: 'Achieve 90%+ accuracy' },
   onTarget: { id: 'onTarget', name: 'On Target', desc: 'Finish a round with 10+ cuts and zero off-target snips' },
@@ -1061,7 +1076,6 @@ const el = {
   difficulty: document.getElementById("difficulty"),
   accuracyDisplay: document.getElementById("accuracy-display"),
   guideSeq: document.getElementById("guide-seq"),
-  best: document.getElementById("best"),
   overlay: document.getElementById("overlay"),
   cardStart: document.getElementById("card-start"),
   cardEnd: document.getElementById("card-end"),
@@ -1091,8 +1105,6 @@ function initializeScissors() {
 // Call initialization immediately
 initializeScissors();
 
-if (el.best) el.best.textContent = getBestScore(state.gameMode);
-
 // Ensure event listeners are attached after DOM is ready
 if (el.startBtn) el.startBtn.addEventListener("click", startGame);
 if (el.againBtn) el.againBtn.addEventListener("click", startGame);
@@ -1101,10 +1113,14 @@ if (el.stopBtn) el.stopBtn.addEventListener("click", endGame);
 
 // Mode selection listeners
 document.querySelectorAll(".mode-btn").forEach(btn => {
-  btn.addEventListener("click", (e) => {
-    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("selected"));
-    e.target.classList.add("selected");
-    state.gameMode = e.target.dataset.mode;
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".mode-btn").forEach(b => {
+      b.classList.remove("selected");
+      b.setAttribute("aria-pressed", "false");
+    });
+    btn.classList.add("selected");
+    btn.setAttribute("aria-pressed", "true");
+    state.gameMode = btn.dataset.mode;
   });
 });
 
@@ -1265,7 +1281,6 @@ function endGame() {
     score: state.score, cuts: state.cuts, accuracy, maxCombo: state.maxCombo,
     offTargets: state.offTargets, date: new Date().toISOString(),
   }, mode);
-  if (el.best) el.best.textContent = getBestScore(mode);
 
   // Check for achievements
   checkAchievements();
@@ -1485,9 +1500,18 @@ function attemptCut(col) {
     registerTolerated(col);
   } else if (col.classList.contains("decoy")) {
     registerOffTarget(col, DECOY_MESSAGES[col.dataset.decoy]);
+  } else if (isTargetPam(col)) {
+    registerOffTarget(col, "That's the PAM. Cas9 cuts 3 bp upstream of it, never inside.");
   } else {
     registerOffTarget(col, "Off-target cut. Combo lost, blades jammed.");
   }
+}
+
+// The three columns immediately 3' of the live target's protospacer.
+function isTargetPam(col) {
+  const t = state.activeTarget;
+  const i = Number(col.dataset.index);
+  return !!t && i > t.end && i <= t.end + CONFIG.pamLength;
 }
 
 // ---------- keyboard play ----------
@@ -1505,7 +1529,14 @@ function describeColumn(col, i) {
   const [top, bottom] = Array.from(col.querySelectorAll(".base"), (b) => b.textContent);
   let label = "Position " + (i + 1) + ", " + top + " paired with " + bottom;
   if (col.classList.contains("candidate")) label += ", fluorescing";
-  if (col.classList.contains("pam")) label += ", PAM";
+  if (col.classList.contains("pam")) {
+    // With decoys on screen every candidate's triplet is tinted as the place
+    // to check, and some of those are not an NGG at all. So the label names
+    // the position and leaves the reading to the player, as the screen does.
+    const t = state.activeTarget;
+    const contested = !!t && !!t.decoys && t.decoys.length > 0;
+    label += contested ? ", PAM position" : ", PAM";
+  }
   return label;
 }
 
@@ -1632,23 +1663,28 @@ function registerHit(col) {
   const bonus = Math.round(CONFIG.basePoints * speed * 0.6);
   let gained = (CONFIG.basePoints + bonus) * state.combo;
 
-  // combo milestone bonuses (500 extra at 5, 10 combo streaks)
-  if (state.combo > 0 && state.combo % 5 === 0) {
-    gained += 500;
-  }
-
-  state.score += gained;
   state.cuts++;
+  const comboBefore = state.combo;
   state.combo = Math.min(CONFIG.comboCap, state.combo + 1);
   state.maxCombo = Math.max(state.maxCombo, state.combo);
+
+  // Milestone bonus: 500 extra on the cut that lifts the combo to 5 or 10.
+  // This used to test the combo before the increment, so once it sat at its
+  // cap of 10 every single hit collected the "milestone" again.
+  if (state.combo !== comboBefore && state.combo % 5 === 0) {
+    gained += 500;
+  }
+  state.score += gained;
 
   // Achievement: First Blood
   if (state.cuts === 1) {
     unlockAchievement('firstBlood');
   }
 
-  // Achievement: Speed Demon (500+ on single cut)
-  if (gained >= 500) {
+  // Achievement: Speed Demon - a genuinely fast reaction, in absolute time.
+  // It used to trigger on 500+ points from one cut, which any combo-5 hit
+  // clears on the milestone bonus alone, so it had nothing to do with speed.
+  if (elapsed <= CONFIG.speedDemonMs) {
     unlockAchievement('speedDemon');
   }
 
@@ -1700,7 +1736,6 @@ function registerHit(col) {
   scheduleSpawn(CONFIG.gapAfterHit);
 }
 
-// difficulty: the window shrinks as you land more cuts
 // difficulty: the window shrinks as you land more cuts.
 // The ramp reaches the mode's windowMin at rampCuts, which is about as far
 // as a Classic round gets. Zen is endless and used to sit flat there
@@ -1971,8 +2006,8 @@ function checkAchievements() {
 }
 
 // ---------- score management in the browser ----------
-// Classic and Zen keep separate boards: Zen is endless, so its scores
-// would otherwise swamp the shared top-10 and bury every Classic run.
+// Every mode keeps its own board. Zen is endless and Guide RNA scores on a
+// different clock, so a shared top ten would bury every Classic run.
 function scoresKey(mode) {
   return "cutsite-scores-" + (MODES[mode] ? mode : "classic");
 }
@@ -2096,11 +2131,17 @@ function getDifficultyLevel() {
   return Math.round(((m.windowStart - currentWindow()) / span) * 100);
 }
 
-// Spacebar to restart game (press during game over screen)
+// Spacebar restarts from the game-over card. Escape ends an untimed round,
+// the same as the Stop button; timed rounds are left alone, so a stray
+// Escape can never forfeit a Classic run.
 document.addEventListener("keydown", (e) => {
   if (e.code === "Space" && !state.running && el.cardEnd.classList.contains("hidden") === false) {
     e.preventDefault();
     startGame();
+  }
+  if (e.key === "Escape" && state.running && !mode().timed) {
+    e.preventDefault();
+    endGame();
   }
 });
   </script>

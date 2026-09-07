@@ -347,13 +347,28 @@
     state.gameMode = "classic";
   });
 
-  test("modes: zen hides the clock and offers a stop button", function () {
+  test("modes: zen hides the clock and renders a stop button", function () {
     freeze("zen");
     assert(el.time.closest(".stat").classList.contains("hidden"), "zen should hide the whole time stat");
-    assert(!el.stopBtn.classList.contains("hidden"), "zen should show the stop button");
+    // offsetParent is null for anything display:none, including via an
+    // ancestor - which is how a stop button inside the hidden overlay once
+    // passed a class-only check while never appearing on screen.
+    assert(el.stopBtn.offsetParent !== null, "zen's stop button must actually render");
     freeze("classic");
     assert(!el.time.closest(".stat").classList.contains("hidden"), "classic should show the clock");
-    assert(el.stopBtn.classList.contains("hidden"), "classic should hide the stop button");
+    assert(el.stopBtn.offsetParent === null, "classic should not render a stop button");
+  });
+
+  test("modes: the stop button and Escape both end a zen round, Escape never a timed one", function () {
+    freeze("zen");
+    el.stopBtn.click();
+    assert(!state.running, "the stop button should end the round");
+    freeze("zen");
+    key("Escape");
+    assert(!state.running, "Escape should end an untimed round");
+    freeze("classic");
+    key("Escape");
+    assert(state.running, "Escape must not forfeit a timed round");
   });
 
   // ============================================================
@@ -367,6 +382,46 @@
     assert(state.score > 0, "a hit should score");
     eq(state.combo, before + 1, "combo should climb");
     eq(state.offTargets, 0, "a clean cut is not an off-target");
+  });
+
+  test("scoring: the milestone bonus pays on reaching 5 and 10, never on every capped hit", function () {
+    // Back-date every spawn by the same amount so the speed bonus is constant
+    // and the only variable is the combo.
+    const gainedFrom = function (combo) {
+      const t = freeze("classic");
+      state.combo = combo;
+      t.spawnedAt = performance.now() - 600;
+      const before = state.score;
+      click(cols()[t.start]);
+      return state.score - before;
+    };
+    const unit = gainedFrom(2) / 2;                 // 2 -> 3: no milestone
+    eq(gainedFrom(4), unit * 4 + 500, "the cut that lifts the combo to 5 pays the bonus");
+    eq(gainedFrom(5), unit * 5, "the next cut does not");
+    eq(gainedFrom(9), unit * 9 + 500, "reaching 10 pays it again");
+    eq(gainedFrom(10), unit * 10, "sitting at the cap must not pay it on every hit");
+    eq(gainedFrom(10), unit * 10, "...or the one after");
+  });
+
+  test("achievements: Speed Demon needs a genuinely fast cut, not a big score", function () {
+    localStorage.clear();
+    let t = freeze("classic");
+    state.combo = 5;                                 // lots of points, but slow
+    t.spawnedAt = performance.now() - 600;
+    click(cols()[t.start]);
+    assert(!state.earnedAchievements.includes("speedDemon"),
+           "a slow cut must not count however many points it scores");
+    t = freeze("classic");
+    t.spawnedAt = performance.now() - 100;           // a quick one
+    click(cols()[t.start]);
+    assert(state.earnedAchievements.includes("speedDemon"), "a cut within a quarter second should count");
+  });
+
+  test("off-target: cutting the PAM itself says where Cas9 really cuts", function () {
+    const t = freeze("classic");
+    click(cols()[t.end + 2]);
+    assert(/never inside/.test(el.status.textContent), "should say the cut is upstream, got: " + el.status.textContent);
+    eq(state.offTargets, 1, "it is still an off-target cut");
   });
 
   test("scoring: the combo is capped", function () {
@@ -539,7 +594,8 @@
   test("end card: every achievement is listed, locked ones with how to earn them", function () {
     localStorage.clear();
     const t = freeze("classic");
-    click(cols()[t.start]);          // earns First Blood
+    t.spawnedAt = performance.now() - 600;   // unhurried, so only First Blood unlocks
+    click(cols()[t.start]);
     endGame();
     const ids = Object.keys(ACHIEVEMENTS);
     const tiles = Array.from(el.cardEnd.querySelectorAll(".achievement"));
@@ -563,6 +619,7 @@
     localStorage.clear();
     persistAchievement("firstBlood");
     const t = freeze("classic");
+    t.spawnedAt = performance.now() - 600;   // unhurried, so nothing new unlocks
     click(cols()[t.start]);
     endGame();
     const tiles = Array.from(el.cardEnd.querySelectorAll(".achievement"));
@@ -621,6 +678,38 @@
     clearTarget();
     assert(!c.some(function (x) { return /fluorescing|PAM/.test(x.getAttribute("aria-label")); }),
            "labels should return to plain base pairs when the target clears");
+  });
+
+  test("a11y: with decoys on screen, labels name a PAM position, never a PAM that is not there", function () {
+    let nopam = null, tries = 0;
+    while (!nopam && tries++ < 60) {
+      freeze("guide", 10);
+      nopam = state.activeTarget.decoys.find(function (d) { return d.kind === "nopam"; }) || null;
+    }
+    assert(nopam, "never spawned a no-PAM decoy");
+    const c = cols(), t = state.activeTarget;
+    c.forEach(function (col) {
+      assert(!/, PAM$/.test(col.getAttribute("aria-label")),
+             "no column may be labelled a bare PAM while decoys are on screen");
+    });
+    assert(/PAM position/.test(c[nopam.end + 2].getAttribute("aria-label")),
+           "a no-PAM decoy's triplet is a position to check, not a PAM");
+    assert(/PAM position/.test(c[t.end + 2].getAttribute("aria-label")),
+           "the real target's triplet reads the same, so the label leaks nothing");
+    freeze("classic");
+    assert(/, PAM$/.test(cols()[state.activeTarget.end + 2].getAttribute("aria-label")),
+           "with a single target its triplet is simply the PAM");
+  });
+
+  test("a11y: mode buttons announce which one is selected", function () {
+    const btn = function (m) { return document.querySelector('.mode-btn[data-mode="' + m + '"]'); };
+    btn("zen").click();
+    eq(btn("zen").getAttribute("aria-pressed"), "true", "zen should read as pressed");
+    eq(btn("classic").getAttribute("aria-pressed"), "false", "classic should read as released");
+    eq(state.gameMode, "zen", "the mode should follow");
+    btn("classic").click();
+    eq(btn("classic").getAttribute("aria-pressed"), "true", "classic pressed again");
+    assert(document.querySelector(".mode-selector").getAttribute("aria-label"), "the group needs a name");
   });
 
   test("keyboard: arrows move the cursor, Home/End jump, edges clamp", function () {
