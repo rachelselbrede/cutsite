@@ -309,6 +309,7 @@ body {
 }
 .guide-label { text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.62rem; }
 .guide-end { opacity: 0.7; }
+.guide-strand { font-size: 0.62rem; letter-spacing: 0.06em; color: var(--muted); margin-left: 4px; }
 .guide-seq { display: inline-flex; gap: 2px; min-width: 1.5em; justify-content: center; }
 .guide-seq .base {
   width: 18px;
@@ -327,6 +328,12 @@ body {
   animation: fluoresce 0.9s ease-in-out infinite;
 }
 .col.candidate .base { opacity: 1; box-shadow: 0 0 12px 2px var(--glow-soft); }
+/* Which strand carries the site: its bases glow in full and the other
+   strand's sit dimmer. Together with the PAM's side that is the whole
+   reading cue - a PAM to the left means a bottom-strand site, read right to
+   left. Screen readers get the same fact in the column label. */
+.col.candidate.on-top .base:last-child,
+.col.candidate.on-bottom .base:first-child { opacity: 0.45; box-shadow: none; }
 @keyframes fluoresce {
   0%, 100% { box-shadow: 0 0 0 0 rgba(46,230,200,0); }
   50% { box-shadow: 0 0 18px 3px var(--glow-soft); }

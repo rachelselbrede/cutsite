@@ -4,7 +4,8 @@
    How a round works:
      1. A strand of DNA is drawn as a row of base pairs.
      2. Every so often a short stretch fluoresces beside an NGG
-        PAM: the target. Cut it before its window closes.
+        PAM, on either strand: the target. Cut it before its
+        window closes.
         - A fast cut scores more and builds the combo.
         - Letting it expire breaks the combo.
         - Cutting anything else is an OFF-TARGET cut: the combo
@@ -40,6 +41,7 @@ const CONFIG = {
   gapAfterMiss: 650,
   lockoutMs: 450,        // blades jam this long after an off-target cut
   speedDemonMs: 250,     // a cut this soon after the glow is a Speed Demon
+  reverseChance: 0.5,    // share of sites on the bottom strand, as in a genome
 };
 
 // Per-mode tuning. Classic and Zen are pure reflex: one glowing site, short
@@ -50,16 +52,19 @@ const CONFIG = {
 // floor at windowMin so nothing past 25 cuts changes and its leaderboard
 // stays comparable; Guide RNA is a reading mode and should not turn into a
 // reflex test; Zen is the one that goes on tightening.
+// reverseAfter is the cut count from which sites may face the bottom strand.
+// Reflex modes never needed reading, so they show both orientations at once;
+// Guide RNA introduces reverse sites only after the two-decoy tier.
 const MODES = {
   classic: { label: "Classic", timed: true, roundSeconds: CONFIG.roundSeconds,
              windowStart: CONFIG.windowStart, windowMin: CONFIG.windowMin,
-             windowFloor: CONFIG.windowMin, decoys: () => 0 },
+             windowFloor: CONFIG.windowMin, decoys: () => 0, reverseAfter: 0 },
   zen:     { label: "Zen", timed: false, roundSeconds: 0,
              windowStart: CONFIG.windowStart, windowMin: CONFIG.windowMin,
-             windowFloor: 400, decoys: () => 0 },
+             windowFloor: 400, decoys: () => 0, reverseAfter: 0 },
   guide:   { label: "Guide RNA", timed: true, roundSeconds: 45,
              windowStart: 4000, windowMin: 1800,
-             windowFloor: 1800, decoys: (cuts) => (cuts < 8 ? 1 : 2) },
+             windowFloor: 1800, decoys: (cuts) => (cuts < 8 ? 1 : 2), reverseAfter: 12 },
 };
 function mode() {
   return MODES[state.gameMode] || MODES.classic;
@@ -91,7 +96,7 @@ const state = {
   cuts: 0,
   misses: 0,
   timeLeft: CONFIG.roundSeconds,
-  activeTarget: null,   // { start, end, breakIndex, guide, spawnedAt, window, restore }
+  activeTarget: null,   // { start, end, reverse, pamStart, breakIndex, guide, spawnedAt, window, restore, decoys }
   timers: { round: null, spawn: null, expiry: null },
   muted: false,
   gameMode: 'classic',  // a key of MODES
@@ -124,6 +129,7 @@ const el = {
   difficulty: document.getElementById("difficulty"),
   accuracyDisplay: document.getElementById("accuracy-display"),
   guideSeq: document.getElementById("guide-seq"),
+  guideStrand: document.getElementById("guide-strand"),
   overlay: document.getElementById("overlay"),
   cardStart: document.getElementById("card-start"),
   cardEnd: document.getElementById("card-end"),
@@ -378,6 +384,58 @@ function placeWindows(colCount, count) {
   return null;
 }
 
+// Where a site's pieces sit on screen for a window that begins at column w.
+// A forward site reads left to right along the top strand with its PAM to
+// the right. A reverse site lives on the bottom strand, which runs 3'->5'
+// left to right on screen, so it reads RIGHT TO LEFT and its PAM sits to the
+// LEFT of the protospacer - where the top strand shows it as CCN. Half of
+// real genomic sites face this way.
+function siteLayout(w, reverse) {
+  const len = CONFIG.targetLength, pam = CONFIG.pamLength;
+  return reverse
+    ? { reverse, start: w + pam, end: w + pam + len - 1, pamStart: w }
+    : { reverse, start: w, end: w + len - 1, pamStart: w + len };
+}
+
+// The two PAM columns that must carry a G on the site's own strand. Reverse
+// sites read right to left on the bottom strand, so their Gs are the two
+// LEFTMOST PAM columns - and a G on the bottom strand shows as a C on top.
+function pamGColumns(site) {
+  return site.reverse ? [site.pamStart, site.pamStart + 1] : [site.pamStart + 1, site.pamStart + 2];
+}
+function gOnSiteStrand(site) {
+  return site.reverse ? "C" : "G";
+}
+
+// Cas9 breaks the duplex 3 bp upstream of the PAM, on the PAM's side of the
+// protospacer. The line is drawn on the left edge of the returned column.
+function breakIndexOf(site) {
+  return site.reverse
+    ? site.start + CONFIG.cutOffsetFromPam
+    : site.end - CONFIG.cutOffsetFromPam + 1;
+}
+
+// Protospacer columns nearest the PAM (the seed end) and farthest from it.
+function seedColumns(site) {
+  return site.reverse ? [site.start, site.start + 1] : [site.end, site.end - 1];
+}
+function distalColumns(site) {
+  return site.reverse ? [site.end, site.end - 1] : [site.start, site.start + 1];
+}
+
+// The protospacer read 5'->3' along the strand that carries the PAM: left to
+// right on the top strand, or right to left on the bottom one, where every
+// letter is the complement of what the top strand shows.
+function readSite(site, readTop) {
+  const out = [];
+  if (site.reverse) {
+    for (let i = site.end; i >= site.start; i--) out.push(COMPLEMENT[readTop(i)]);
+  } else {
+    for (let i = site.start; i <= site.end; i++) out.push(readTop(i));
+  }
+  return out;
+}
+
 function spawnTarget() {
   if (!state.running) return;
 
@@ -409,80 +467,86 @@ function spawnTarget() {
   let starts = placeWindows(cols.length, decoys + 1);
   while (!starts && decoys > 0) starts = placeWindows(cols.length, --decoys + 1);
 
-  const start = starts[0];
-  const end = start + CONFIG.targetLength - 1;
+  // Each window becomes a forward or a reverse site. Reverse sites are gated
+  // per mode: the reflex modes show them from the start, since a glow is a
+  // glow, but Guide RNA holds them back until reading forward sites is
+  // second nature - and each site faces its own way, as in a genome.
+  const allowReverse = state.cuts >= m.reverseAfter;
+  const layout = (w) => siteLayout(w, allowReverse && Math.random() < CONFIG.reverseChance);
 
-  // The PAM is NGG. Only the two Gs are fixed; the N keeps whatever base the
-  // strand already had, because in NGG the first position genuinely is any
-  // base. Tagging all three makes the motif on screen the length it really is.
-  write(end + 2, "G");
-  write(end + 3, "G");
-  for (let i = 1; i <= CONFIG.pamLength; i++) cols[end + i].classList.add("pam");
-  for (let i = start; i <= end; i++) cols[i].classList.add("candidate", "in-target");
+  const site = layout(starts[0]);
+  const { start, end } = site;
 
-  // The guide's spacer reads the same as the protospacer on this strand
-  // (with U for T); it base-pairs with the strand underneath.
-  const guide = [];
-  for (let i = start; i <= end; i++) guide.push(readBase(i));
+  // The PAM is NGG read along the site's own strand. Only the two Gs are
+  // fixed; the N keeps whatever base the strand already had, because in NGG
+  // the first position genuinely is any base.
+  pamGColumns(site).forEach((i) => write(i, gOnSiteStrand(site)));
+  for (let i = 0; i < CONFIG.pamLength; i++) cols[site.pamStart + i].classList.add("pam");
+  for (let i = start; i <= end; i++) {
+    cols[i].classList.add("candidate", "in-target", site.reverse ? "on-bottom" : "on-top");
+  }
 
-  // Decoys carry the same sequence as the guide, then differ in one of three
-  // ways. "nopam" and "seed" are sites Cas9 refuses. "distal" is a site Cas9
-  // cuts anyway - the one that is hardest to spot, because every base has to
-  // be read, so it joins the pool only once a player has a few cuts in.
-  // The pool is shuffled so a two-decoy spawn always shows two different
-  // kinds and a one-decoy spawn is unpredictable.
+  // The guide's spacer reads the same as the protospacer on the strand that
+  // carries the PAM (with U for T); it base-pairs with the other strand.
+  const guide = readSite(site, readBase);
+
+  // Decoys carry the guide's sequence in their own orientation, then differ
+  // in one of three ways. "nopam" and "seed" are sites Cas9 refuses.
+  // "distal" is a site Cas9 cuts anyway - the hardest to spot, because every
+  // base has to be read, so it joins the pool only once a player has a few
+  // cuts in. The pool is shuffled so a two-decoy spawn always shows two
+  // different kinds and a one-decoy spawn is unpredictable.
   const pool = state.cuts < 4 ? ["nopam", "seed"] : ["nopam", "seed", "distal"];
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   const decoyRuns = [];
-  starts.slice(1).forEach((s, k) => {
-    const e = s + CONFIG.targetLength - 1;
+  starts.slice(1).forEach((w, k) => {
+    const d = layout(w);
     const kind = pool[k % pool.length];
-    guide.forEach((b, j) => write(s + j, b));
+    guide.forEach((b, j) => (d.reverse ? write(d.end - j, COMPLEMENT[b]) : write(d.start + j, b)));
+    const [gFirst, gSecond] = pamGColumns(d);
     if (kind === "nopam") {
-      // Any triplet that is not NGG: the last position is forced off G.
-      write(e + 2, BASES[Math.floor(Math.random() * 4)]);
-      write(e + 3, randomBaseExcept("G"));
+      // Any triplet that is not NGG: one G position is forced off G on the
+      // site's own strand.
+      write(gFirst, BASES[Math.floor(Math.random() * 4)]);
+      write(gSecond, randomBaseExcept(gOnSiteStrand(d)));
     } else {
-      write(e + 2, "G");
-      write(e + 3, "G");
-      // One mismatch. Seed: the base beside the PAM or the next one in. Distal:
-      // the base at the far end or the next one in. The middle base is left
-      // alone so the two kinds never blur into each other.
-      const pos = kind === "seed"
-        ? e - Math.floor(Math.random() * 2)
-        : s + Math.floor(Math.random() * 2);
+      pamGColumns(d).forEach((i) => write(i, gOnSiteStrand(d)));
+      // One mismatch: in the seed (the two bases beside the PAM) or at the
+      // far end. The middle base is left alone so the kinds never blur.
+      const pair = kind === "seed" ? seedColumns(d) : distalColumns(d);
+      const pos = pair[Math.floor(Math.random() * 2)];
       write(pos, randomBaseExcept(readBase(pos)));
     }
-    for (let i = 1; i <= CONFIG.pamLength; i++) cols[e + i].classList.add("pam");
-    for (let i = s; i <= e; i++) {
-      cols[i].classList.add("candidate", "decoy");
+    for (let i = 0; i < CONFIG.pamLength; i++) cols[d.pamStart + i].classList.add("pam");
+    for (let i = d.start; i <= d.end; i++) {
+      cols[i].classList.add("candidate", "decoy", d.reverse ? "on-bottom" : "on-top");
       cols[i].dataset.decoy = kind;
     }
-    decoyRuns.push({ start: s, end: e, kind });
+    decoyRuns.push({ start: d.start, end: d.end, reverse: d.reverse, pamStart: d.pamStart, kind });
   });
 
-  // Cas9 makes a blunt double-strand break a fixed 3 bp upstream of the PAM,
-  // not across the whole protospacer. The base immediately 3' of the break
-  // carries the line on its leading edge. With decoys on screen the line
-  // would give the answer away, so it waits for the cut itself.
-  const breakIndex = Math.max(start, end - CONFIG.cutOffsetFromPam + 1);
+  // The break is drawn at the scissile position - with decoys on screen it
+  // would give the answer away, so it waits for the cut itself. Likewise
+  // the PAM label: one, centred under the middle base of the motif.
+  const breakIndex = breakIndexOf(site);
   if (decoys === 0) {
     cols[breakIndex].classList.add("cut-site");
-    // One label, centred under the middle base of the motif.
-    cols[end + 2].classList.add("pam-label");
+    cols[site.pamStart + 1].classList.add("pam-label");
   }
 
   // Named windowMs so it does not shadow the global `window`.
   const windowMs = currentWindow();
   state.activeTarget = {
-    start, end, breakIndex, guide, spawnedAt: performance.now(), window: windowMs, restore,
-    decoys: decoyRuns,
+    start, end, reverse: site.reverse, pamStart: site.pamStart, breakIndex, guide,
+    spawnedAt: performance.now(), window: windowMs, restore, decoys: decoyRuns,
   };
   relabelColumns();
-  showGuide(guide);
+  // The strand tag would narrow the field with decoys on screen, so it only
+  // shows for a single target.
+  showGuide(guide, decoys === 0 ? (site.reverse ? "bottom" : "top") : null);
   setStatus(decoys > 0 ? "Which site matches the guide? Check its PAM." : "Target locked. Cut it!", true);
 
   state.timers.expiry = setTimeout(onExpire, windowMs);
@@ -508,7 +572,7 @@ function clearTarget() {
     state.activeTarget.restore.forEach((r) => setBase(cols[r.index], r.base));
   }
   columns().forEach((c) => {
-    c.classList.remove("candidate", "in-target", "decoy", "pam", "pam-label", "cut-site", "breaking");
+    c.classList.remove("candidate", "in-target", "decoy", "pam", "pam-label", "cut-site", "breaking", "on-top", "on-bottom");
     delete c.dataset.decoy;
   });
   relabelColumns();
@@ -555,11 +619,11 @@ function attemptCut(col) {
   }
 }
 
-// The three columns immediately 3' of the live target's protospacer.
+// The live target's three PAM columns, whichever side of it they sit.
 function isTargetPam(col) {
   const t = state.activeTarget;
   const i = Number(col.dataset.index);
-  return !!t && i > t.end && i <= t.end + CONFIG.pamLength;
+  return !!t && i >= t.pamStart && i < t.pamStart + CONFIG.pamLength;
 }
 
 // ---------- keyboard play ----------
@@ -576,7 +640,11 @@ function columnId(i) {
 function describeColumn(col, i) {
   const [top, bottom] = Array.from(col.querySelectorAll(".base"), (b) => b.textContent);
   let label = "Position " + (i + 1) + ", " + top + " paired with " + bottom;
-  if (col.classList.contains("candidate")) label += ", fluorescing";
+  if (col.classList.contains("candidate")) {
+    label += col.classList.contains("on-bottom")
+      ? ", fluorescing on the bottom strand"
+      : ", fluorescing on the top strand";
+  }
   if (col.classList.contains("pam")) {
     // With decoys on screen every candidate's triplet is tinted as the place
     // to check, and some of those are not an NGG at all. So the label names
@@ -732,7 +800,7 @@ function registerTolerated(col) {
     cols[i].classList.add("cut");
     setTimeout(() => cols[i].classList.remove("cut"), 400);
   }
-  const breakCol = cols[Math.max(run.start, run.end - CONFIG.cutOffsetFromPam + 1)];
+  const breakCol = cols[breakIndexOf(run)];
   breakCol.classList.add("cut-site", "breaking");
   setTimeout(() => breakCol.classList.remove("cut-site", "breaking"), 400);
   floatPoints(col, "off-target", true);
@@ -931,16 +999,23 @@ function randomBaseExcept(letter) {
 
 // The guide is RNA, so it is shown 5' to 3' with U in place of T. Its spacer
 // matches the protospacer on the top strand and pairs with the bottom one.
-function showGuide(bases) {
+function showGuide(bases, strand) {
   if (!el.guideSeq) return;
   if (!bases) {
     el.guideSeq.textContent = "—";
+    if (el.guideStrand) el.guideStrand.textContent = "";
     return;
   }
   el.guideSeq.innerHTML = bases.map((b) => {
     const r = b === "T" ? "U" : b;
     return `<span class="base base-${r}">${r}</span>`;
   }).join("");
+  // Which strand the site is on, and so which way to read it on screen.
+  if (el.guideStrand) {
+    el.guideStrand.textContent = strand === "bottom"
+      ? "· bottom strand, read right to left"
+      : strand === "top" ? "· top strand, read left to right" : "";
+  }
 }
 
 function bump(node) {

@@ -22,6 +22,7 @@ no build step. To run it locally, open `index.html` in a browser.
   slowly and forever, so a long run eventually has to earn its combo.
 - **Guide RNA** — 45-second rounds where decoy sites fluoresce alongside the real
   one. Read the guide and cut only the site that matches it beside a genuine `NGG`.
+  Sites face either strand, and a PAM to the left of a glow means read right to left.
 - **Off-target penalty** — cutting anything else resets your combo and, when
   Cas9 would have refused the site, jams the blades for a moment, so precision
   beats spraying clicks.
@@ -81,6 +82,13 @@ This game keeps those ideas and simplifies the rest:
   PAM - is *tolerated*: Cas9 cuts it anyway. In the game the blades work, the
   DNA parts, and only then does the penalty land, because that is the actual
   off-target problem. The enzyme does not protect you; the guide design has to.
+- Sites face **either way**. Half of real genomic targets sit on the reverse
+  strand, which runs 3' to 5' left to right on screen, so they read **right to
+  left** along the bottom strand and their PAM sits to the **left** - where the
+  top strand shows it as `CCN`. The guide is then the reverse complement of what
+  the top strand shows, the bases on the site's own strand glow brightest, and
+  the cut still lands 3 bp from the PAM, on the PAM's side. Guide RNA mode
+  brings reverse sites in after twelve cuts, and each site faces its own way.
 - The target length and the 20-letter guide are shortened so the whole thing
   fits on one screen and stays fun.
 
@@ -127,7 +135,7 @@ in a real browser: `tests/run.py` serves the repo, copies `index.html` with
 `tests/suite.js` injected just after `script.js` — so the tests share the
 game's own scope — and reads the results back out of headless Chrome.
 
-Most of the 64 tests guard the biology, because that is the part of this
+Most of the 68 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a

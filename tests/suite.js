@@ -33,6 +33,25 @@
   const botOf = (c) => c.querySelectorAll(".base")[1].textContent;
   const composition = () => cols().map(topOf).sort().join("");
   const seqAt = (list, a, b) => list.slice(a, b + 1).map(topOf).join("");
+  // A site read the way Cas9 reads it: 5' to 3' along the strand that carries
+  // the PAM. Forward sites read the top strand left to right; reverse sites
+  // read the bottom strand right to left. Computed here with plain column
+  // arithmetic, on purpose, so a slip in the game's own helpers cannot hide.
+  const site5to3 = (st) => {
+    const c = cols(), out = [];
+    if (st.reverse) for (let i = st.end; i >= st.start; i--) out.push(COMP[topOf(c[i])]);
+    else for (let i = st.start; i <= st.end; i++) out.push(topOf(c[i]));
+    return out.join("");
+  };
+  const pam5to3 = (st) => {
+    const c = cols(), p = st.pamStart;
+    return st.reverse
+      ? COMP[topOf(c[p + 2])] + COMP[topOf(c[p + 1])] + COMP[topOf(c[p])]
+      : topOf(c[p]) + topOf(c[p + 1]) + topOf(c[p + 2]);
+  };
+  const isNGG = (st) => /^.GG$/.test(pam5to3(st));
+  const revcomp = (str) => str.split("").reverse().map((b) => COMP[b]).join("");
+  const tag = (st) => (st.reverse ? " (reverse site)" : " (forward site)");
 
   // Start a round and freeze one target on screen, with no timers left
   // running to disturb the next assertion.
@@ -106,44 +125,123 @@
   // ============================================================
   // The target: PAM, cut site, guide
   // ============================================================
-  test("target: the PAM is always NGG", function () {
+  test("target: the PAM is always NGG, read along the site's own strand", function () {
+    freeze("classic");
+    const seen = { fwd: 0, rev: 0 };
+    for (let n = 0; n < 200; n++) {
+      const t = state.activeTarget;
+      assert(isNGG(t), "PAM read 5' to 3' on its strand should be NGG, got " + pam5to3(t) + tag(t));
+      if (t.reverse) seen.rev++; else seen.fwd++;
+      clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
+    }
+    assert(seen.fwd > 20 && seen.rev > 20, "both orientations should turn up in classic: " + JSON.stringify(seen));
+  });
+
+  test("target: the protospacer and its PAM stay on the strand, whichever way the site faces", function () {
     freeze("classic");
     for (let n = 0; n < 200; n++) {
-      const t = state.activeTarget, c = cols();
-      eq(topOf(c[t.end + 2]), "G", "PAM position 2");
-      eq(topOf(c[t.end + 3]), "G", "PAM position 3");
+      const t = state.activeTarget, last = cols().length - 1;
+      assert(t.start >= 0 && t.end <= last, "protospacer off the strand" + tag(t));
+      assert(t.pamStart >= 0 && t.pamStart + CONFIG.pamLength - 1 <= last, "PAM off the strand" + tag(t));
+      if (t.reverse) eq(t.pamStart + CONFIG.pamLength, t.start, "a reverse PAM should sit immediately left of its protospacer");
+      else eq(t.pamStart, t.end + 1, "a forward PAM should sit immediately right of its protospacer");
       clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
     }
   });
 
-  test("target: the protospacer and its PAM stay on the strand", function () {
+  test("target: the cut site sits 3 bp upstream of the PAM, on the PAM's side", function () {
     freeze("classic");
     for (let n = 0; n < 200; n++) {
       const t = state.activeTarget;
-      assert(t.start >= 0, "start off the left edge");
-      assert(t.end + CONFIG.pamLength <= cols().length - 1, "PAM runs off the right edge");
-      clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
-    }
-  });
-
-  test("target: the cut site sits 3 bp upstream of the PAM", function () {
-    freeze("classic");
-    for (let n = 0; n < 200; n++) {
-      const t = state.activeTarget;
-      eq(t.breakIndex, t.end - CONFIG.cutOffsetFromPam + 1, "break index");
+      const expected = t.reverse ? t.start + CONFIG.cutOffsetFromPam : t.end - CONFIG.cutOffsetFromPam + 1;
+      eq(t.breakIndex, expected, "break index" + tag(t));
       const marked = cols().findIndex(function (c) { return c.classList.contains("cut-site"); });
-      eq(marked, t.breakIndex, "the drawn line and the recorded break disagree");
+      eq(marked, t.breakIndex, "the drawn line and the recorded break disagree" + tag(t));
       clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
     }
   });
 
-  test("target: the guide matches the protospacer exactly", function () {
+  test("target: the guide matches the protospacer read along its own strand", function () {
     freeze("classic");
+    let rev = 0;
     for (let n = 0; n < 200; n++) {
       const t = state.activeTarget;
-      eq(seqAt(cols(), t.start, t.end), t.guide.join(""), "guide vs protospacer");
+      eq(site5to3(t), t.guide.join(""), "guide vs protospacer" + tag(t));
+      if (t.reverse) {
+        rev++;
+        eq(t.guide.join(""), revcomp(seqAt(cols(), t.start, t.end)),
+           "a reverse site's guide should be the reverse complement of what the top strand shows");
+        eq(seqAt(cols(), t.pamStart, t.pamStart + 1), "CC", "a reverse PAM should show as CCN on the top strand");
+      }
       clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
     }
+    assert(rev > 0, "no reverse sites in 200 spawns");
+  });
+
+  test("target: a reverse site's picture is right: PAM left as CCN, glow on the bottom strand, cut on the PAM's side", function () {
+    let t = null, tries = 0;
+    while ((!t || !t.reverse) && tries++ < 80) t = freeze("classic");
+    assert(t && t.reverse, "never spawned a reverse site");
+    const c = cols();
+    assert(t.pamStart + CONFIG.pamLength === t.start, "the PAM should sit immediately left of the protospacer");
+    eq(topOf(c[t.pamStart]) + topOf(c[t.pamStart + 1]), "CC", "the top strand should show CC where the bottom strand has GG");
+    for (let i = t.start; i <= t.end; i++) {
+      assert(c[i].classList.contains("on-bottom"), "protospacer columns should be marked as bottom-strand");
+      assert(!c[i].classList.contains("on-top"), "and not as top-strand");
+    }
+    assert(c[t.pamStart + 1].classList.contains("pam-label"), "the PAM label should sit under the middle PAM column");
+    eq(t.breakIndex, t.start + CONFIG.cutOffsetFromPam, "three bases between the PAM and the break, on the PAM's side");
+  });
+
+  test("guide mode: reverse sites wait for the gate, then turn up on target and decoys alike", function () {
+    freeze("guide", 11);
+    for (let n = 0; n < 60; n++) {
+      const t = state.activeTarget;
+      assert(!t.reverse && !t.decoys.some(function (d) { return d.reverse; }),
+             "no reverse site should appear before the gate");
+      clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
+    }
+    freeze("guide", 20);
+    let revTargets = 0, revDecoys = 0, mixed = 0;
+    for (let n = 0; n < 150; n++) {
+      const t = state.activeTarget;
+      if (t.reverse) revTargets++;
+      const dr = t.decoys.filter(function (d) { return d.reverse; }).length;
+      revDecoys += dr;
+      if (dr > 0 && dr < t.decoys.length) mixed++;
+      clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
+    }
+    assert(revTargets > 20, "reverse targets should be common past the gate: " + revTargets);
+    assert(revDecoys > 20, "and so should reverse decoys: " + revDecoys);
+    assert(mixed > 0, "sites in one spawn should be free to face different ways");
+  });
+
+  test("a11y: labels say which strand a fluorescing site is on", function () {
+    let t = null, tries = 0;
+    while ((!t || !t.reverse) && tries++ < 80) t = freeze("classic");
+    assert(t && t.reverse, "never spawned a reverse site");
+    assert(/fluorescing on the bottom strand/.test(cols()[t.start].getAttribute("aria-label")),
+           "a reverse site should say bottom strand");
+    tries = 0;
+    while ((!t || t.reverse) && tries++ < 80) t = freeze("classic");
+    assert(t && !t.reverse, "never spawned a forward site");
+    assert(/fluorescing on the top strand/.test(cols()[t.start].getAttribute("aria-label")),
+           "a forward site should say top strand");
+  });
+
+  test("guide readout: names the strand and reading direction for a single target, never with decoys", function () {
+    let t = null, tries = 0;
+    while ((!t || !t.reverse) && tries++ < 80) t = freeze("classic");
+    assert(/bottom strand/.test(el.guideStrand.textContent) && /right to left/.test(el.guideStrand.textContent),
+           "reverse tag: " + el.guideStrand.textContent);
+    tries = 0;
+    while ((!t || t.reverse) && tries++ < 80) t = freeze("classic");
+    assert(/top strand/.test(el.guideStrand.textContent) && /left to right/.test(el.guideStrand.textContent),
+           "forward tag: " + el.guideStrand.textContent);
+    freeze("guide", 20);
+    eq(el.guideStrand.textContent, "", "with decoys on screen the tag would narrow the field, so it stays blank");
+    clearTarget();
+    eq(el.guideStrand.textContent, "", "and it clears with the target");
   });
 
   test("target: clearing it restores the strand exactly", function () {
@@ -184,60 +282,60 @@
   // Guide RNA mode: the decoys
   // ============================================================
   test("guide mode: no-PAM decoys match the guide but never carry an NGG", function () {
-    freeze("guide", 10);
-    let seen = 0;
+    freeze("guide", 20);
+    let seen = 0, rev = 0;
     for (let n = 0; n < 150; n++) {
-      const t = state.activeTarget, c = cols();
-      decoyRuns().filter(function (r) { return r.kind === "nopam"; }).forEach(function (r) {
-        seen++;
-        eq(seqAt(c, r.start, r.end), t.guide.join(""), "a no-PAM decoy should match the guide");
-        const isNGG = topOf(c[r.end + 2]) === "G" && topOf(c[r.end + 3]) === "G";
-        assert(!isNGG, "a no-PAM decoy carried a real NGG, making it genuinely cuttable");
+      const t = state.activeTarget;
+      t.decoys.filter(function (d) { return d.kind === "nopam"; }).forEach(function (d) {
+        seen++; if (d.reverse) rev++;
+        eq(site5to3(d), t.guide.join(""), "a no-PAM decoy should match the guide in its own orientation" + tag(d));
+        assert(!isNGG(d), "a no-PAM decoy carried a real NGG (" + pam5to3(d) + "), making it genuinely cuttable" + tag(d));
       });
       clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
     }
     assert(seen > 0, "no no-PAM decoys were generated at all");
+    assert(rev > 0, "no reverse no-PAM decoys in 150 spawns");
   });
 
-  test("guide mode: seed decoys keep an intact PAM and differ by one base", function () {
-    freeze("guide", 10);
-    let seen = 0;
+  test("guide mode: seed decoys keep an intact PAM and differ by one base beside it", function () {
+    freeze("guide", 20);
+    let seen = 0, rev = 0;
     for (let n = 0; n < 150; n++) {
-      const t = state.activeTarget, c = cols();
-      decoyRuns().filter(function (r) { return r.kind === "seed"; }).forEach(function (r) {
-        seen++;
-        assert(topOf(c[r.end + 2]) === "G" && topOf(c[r.end + 3]) === "G",
-               "a seed decoy should keep a real NGG, so the PAM is not the reason it fails");
-        const seq = seqAt(c, r.start, r.end).split("");
+      const t = state.activeTarget;
+      t.decoys.filter(function (d) { return d.kind === "seed"; }).forEach(function (d) {
+        seen++; if (d.reverse) rev++;
+        assert(isNGG(d), "a seed decoy should keep a real NGG, so the PAM is not the reason it fails" + tag(d));
+        const seq = site5to3(d).split("");
         const diffs = seq.map(function (b, j) { return b === t.guide[j] ? -1 : j; })
                          .filter(function (j) { return j >= 0; });
-        eq(diffs.length, 1, "a seed decoy should differ from the guide by exactly one base");
+        eq(diffs.length, 1, "a seed decoy should differ from the guide by exactly one base" + tag(d));
         assert(diffs[0] >= CONFIG.targetLength - 2,
-               "the mismatch fell outside the seed, at position " + diffs[0]);
+               "the mismatch should sit at the 3' end, beside the PAM, not at position " + diffs[0] + tag(d));
       });
       clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
     }
     assert(seen > 0, "no seed decoys were generated at all");
+    assert(rev > 0, "no reverse seed decoys in 150 spawns");
   });
 
   test("guide mode: distal decoys keep an intact PAM and differ by one base far from it", function () {
-    freeze("guide", 10);
-    let seen = 0;
+    freeze("guide", 20);
+    let seen = 0, rev = 0;
     for (let n = 0; n < 150; n++) {
-      const t = state.activeTarget, c = cols();
-      decoyRuns().filter(function (r) { return r.kind === "distal"; }).forEach(function (r) {
-        seen++;
-        assert(topOf(c[r.end + 2]) === "G" && topOf(c[r.end + 3]) === "G",
-               "a distal decoy should keep a real NGG: Cas9 has to be willing to cut it");
-        const seq = seqAt(c, r.start, r.end).split("");
+      const t = state.activeTarget;
+      t.decoys.filter(function (d) { return d.kind === "distal"; }).forEach(function (d) {
+        seen++; if (d.reverse) rev++;
+        assert(isNGG(d), "a distal decoy should keep a real NGG: Cas9 has to be willing to cut it" + tag(d));
+        const seq = site5to3(d).split("");
         const diffs = seq.map(function (b, j) { return b === t.guide[j] ? -1 : j; })
                          .filter(function (j) { return j >= 0; });
-        eq(diffs.length, 1, "a distal decoy should differ from the guide by exactly one base");
-        assert(diffs[0] <= 1, "the mismatch should sit at the far end from the PAM, not at position " + diffs[0]);
+        eq(diffs.length, 1, "a distal decoy should differ from the guide by exactly one base" + tag(d));
+        assert(diffs[0] <= 1, "the mismatch should sit at the 5' end, far from the PAM, not at position " + diffs[0] + tag(d));
       });
       clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
     }
     assert(seen > 0, "no distal decoys were generated at all");
+    assert(rev > 0, "no reverse distal decoys in 150 spawns");
   });
 
   test("guide mode: all three decoy kinds turn up, and never twice in one spawn", function () {
@@ -419,7 +517,7 @@
 
   test("off-target: cutting the PAM itself says where Cas9 really cuts", function () {
     const t = freeze("classic");
-    click(cols()[t.end + 2]);
+    click(cols()[t.pamStart + 1]);
     assert(/never inside/.test(el.status.textContent), "should say the cut is upstream, got: " + el.status.textContent);
     eq(state.offTargets, 1, "it is still an off-target cut");
   });
@@ -670,7 +768,7 @@
     const t = freeze("classic");
     const c = cols();
     assert(/fluorescing/.test(c[t.start].getAttribute("aria-label")), "target column should say fluorescing");
-    assert(/PAM/.test(c[t.end + 2].getAttribute("aria-label")), "PAM column should say PAM");
+    assert(/PAM/.test(c[t.pamStart + 1].getAttribute("aria-label")), "PAM column should say PAM");
     const plain = c.find(function (x) {
       return !x.classList.contains("candidate") && !x.classList.contains("pam");
     });
@@ -692,12 +790,12 @@
       assert(!/, PAM$/.test(col.getAttribute("aria-label")),
              "no column may be labelled a bare PAM while decoys are on screen");
     });
-    assert(/PAM position/.test(c[nopam.end + 2].getAttribute("aria-label")),
+    assert(/PAM position/.test(c[nopam.pamStart + 1].getAttribute("aria-label")),
            "a no-PAM decoy's triplet is a position to check, not a PAM");
-    assert(/PAM position/.test(c[t.end + 2].getAttribute("aria-label")),
+    assert(/PAM position/.test(c[t.pamStart + 1].getAttribute("aria-label")),
            "the real target's triplet reads the same, so the label leaks nothing");
     freeze("classic");
-    assert(/, PAM$/.test(cols()[state.activeTarget.end + 2].getAttribute("aria-label")),
+    assert(/, PAM$/.test(cols()[state.activeTarget.pamStart + 1].getAttribute("aria-label")),
            "with a single target its triplet is simply the PAM");
   });
 
