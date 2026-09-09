@@ -741,6 +741,57 @@
     eq(state.cursor, 3, "a spawn must not move the cursor, or it would give the answer away");
   });
 
+  test("keyboard: J jumps to the lit site, so a reflex round is one press plus Enter", function () {
+    const t = freeze("classic");
+    setCursor(t.start === 0 ? cols().length - 1 : 0);   // start well away from it
+    key("j");
+    eq(state.cursor, t.start, "J should land on the site");
+    key("j");
+    eq(state.cursor, t.start, "with one site lit, J stays on it");
+    key("Enter");
+    eq(state.cuts, 1, "and Enter cuts it");
+  });
+
+  test("keyboard: J and K cycle through every lit site in order and wrap at the ends", function () {
+    let sites = [], tries = 0;
+    while (sites.length < 3 && tries++ < 60) { freeze("guide", 10); sites = siteStarts(); }
+    eq(sites.length, 3, "needs three lit sites");
+    setCursor(sites[0] === 0 ? cols().length - 1 : 0);
+    const seen = [];
+    for (let n = 0; n < 4; n++) { key("j"); seen.push(state.cursor); }
+    eq(seen.slice(0, 3).join(","), sites.join(","), "J should walk the sites left to right");
+    eq(seen[3], sites[0], "and wrap to the first");
+    key("k");
+    eq(state.cursor, sites[2], "K should wrap back to the last");
+    setCursor(sites[1] + 2);                     // inside the middle site
+    key("k");
+    eq(state.cursor, sites[0], "K from inside a site goes to the previous one, not its own start");
+  });
+
+  test("keyboard: digits pick a lit site by position, and ignore positions that do not exist", function () {
+    let sites = [], tries = 0;
+    while (sites.length < 3 && tries++ < 60) { freeze("guide", 10); sites = siteStarts(); }
+    eq(sites.length, 3, "needs three lit sites");
+    key("2"); eq(state.cursor, sites[1], "2 is the middle site");
+    key("3"); eq(state.cursor, sites[2], "3 is the right-hand site");
+    key("1"); eq(state.cursor, sites[0], "1 is the left-hand site");
+    key("7"); eq(state.cursor, sites[0], "a position that does not exist should move nothing");
+  });
+
+  test("keyboard: jumps do nothing with nothing lit, and never hijack modifier shortcuts", function () {
+    freeze("classic");
+    clearTarget();
+    setCursor(4);
+    key("j"); eq(state.cursor, 4, "J with nothing lit should not move");
+    key("1"); eq(state.cursor, 4, "nor should 1");
+    clearTimeout(state.timers.spawn); spawnTarget(); clearTimeout(state.timers.expiry);
+    setCursor(4);
+    const ev = new KeyboardEvent("keydown", { key: "1", code: "Digit1", metaKey: true, bubbles: true, cancelable: true });
+    el.strand.dispatchEvent(ev);
+    assert(!ev.defaultPrevented, "Cmd+1 must be left to the browser");
+    eq(state.cursor, 4, "and must not move the cursor");
+  });
+
   test("keyboard: Enter cuts at the cursor and scores on the target", function () {
     const t = freeze("classic");
     setCursor(t.start);

@@ -609,7 +609,43 @@ function pointScissorsAt(col) {
   el.scissors.style.top = r.top + r.height / 2 + "px";
 }
 
+// The fluorescing sites on screen, left to right, as their first columns.
+// A site is a run of candidate columns; the PAM beside it is not a
+// candidate, so runs never merge. Decoys count: a jump lands on a site,
+// and reading it is still the job.
+function siteStarts() {
+  const starts = [];
+  let inSite = false;
+  columns().forEach((c, i) => {
+    const lit = c.classList.contains("candidate");
+    if (lit && !inSite) starts.push(i);
+    inSite = lit;
+  });
+  return starts;
+}
+
+// The next site along in `dir`, skipping the one the cursor is on, and
+// wrapping at the ends. Null when nothing is lit.
+function nextSite(dir) {
+  const sites = siteStarts();
+  if (!sites.length) return null;
+  const c = state.cursor;
+  if (dir > 0) {
+    const ahead = sites.filter((s) => s > c);
+    return ahead.length ? ahead[0] : sites[0];
+  }
+  const behind = sites.filter((s) => s + CONFIG.targetLength - 1 < c);
+  return behind.length ? behind[behind.length - 1] : sites[sites.length - 1];
+}
+
+function nthSite(n) {
+  const sites = siteStarts();
+  return n >= 1 && n <= sites.length ? sites[n - 1] : null;
+}
+
 function handleStrandKey(e) {
+  // Leave browser and OS shortcuts alone: Cmd+1 switches tabs, not sites.
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
   const cols = columns();
   let next = null;
   switch (e.key) {
@@ -617,6 +653,12 @@ function handleStrandKey(e) {
     case "ArrowRight": next = state.cursor + 1; break;
     case "Home":       next = 0; break;
     case "End":        next = cols.length - 1; break;
+    // Jumps. A reflex round's window is far too short to walk the strand a
+    // column at a time - up to 25 presses inside 650 ms - so J and K hop
+    // between fluorescing sites and 1-9 pick one by position. Tab is left
+    // alone on purpose: claiming it would trap keyboard focus on the strand.
+    case "j": case "J": next = nextSite(+1); break;
+    case "k": case "K": next = nextSite(-1); break;
     case "Enter":
     case " ":
       // Between rounds Space is the restart key (handled on document), so
@@ -628,8 +670,10 @@ function handleStrandKey(e) {
       attemptCut(cols[state.cursor]);
       return;
     default:
-      return;
+      if (/^[1-9]$/.test(e.key)) next = nthSite(Number(e.key));
+      else return;
   }
+  if (next === null) return;   // a jump with nothing lit: nowhere to go
   e.preventDefault();
   setCursor(next);
   pointScissorsAt(cols[state.cursor]);
