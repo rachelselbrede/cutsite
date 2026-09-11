@@ -550,6 +550,26 @@ body {
 }
 .card-warn b { color: var(--danger); }
 
+/* ---------- daily share row ---------- */
+/* Sized to the end-note it replaces, so the daily's end card is exactly as
+   tall as everyone else's and stays inside the stage with no scrolling. */
+.share {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 12px;
+  min-height: 1.2em;
+}
+.share code {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.share .btn-ghost { margin: 0; display: inline-block; padding: 3px 10px; font-size: 0.74rem; }
+
 /* ---------- footer ---------- */
 .foot {
   margin-top: 18px;

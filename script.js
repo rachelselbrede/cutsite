@@ -11,8 +11,9 @@
         - Cutting anything else is an OFF-TARGET cut: the combo
           resets and, when Cas9 would have refused the site, the
           blades jam for a moment.
-     3. Three modes. Classic is 30 seconds. Zen is endless and
-        keeps tightening. Guide RNA is 45 seconds and lights decoy
+     3. Four modes. Classic is 30 seconds. Zen is endless and
+        keeps tightening. Daily is twelve targets, the same for
+        everyone that day. Guide RNA is 45 seconds and lights decoy
         sites too: only the guide's match beside a real NGG is the
         target. Decoys fail the way real sites fail - no PAM, or a
         seed mismatch - except the PAM-distal mismatch, which Cas9
@@ -65,6 +66,14 @@ const MODES = {
   guide:   { label: "Guide RNA", timed: true, roundSeconds: 45,
              windowStart: 4000, windowMin: 1800,
              windowFloor: 1800, decoys: (cuts) => (cuts < 8 ? 1 : 2), reverseAfter: 12 },
+  // The daily: Guide RNA rules over a fixed twelve targets rather than a
+  // clock, seeded from the date, ramping on targets served, on the full
+  // 30-column strand whatever the screen - so every player's round is the
+  // same round and scores compare.
+  daily:   { label: "Daily", timed: false, roundSeconds: 0,
+             windowStart: 4000, windowMin: 2000, windowFloor: 2000,
+             decoys: (served) => (served < 4 ? 1 : 2), reverseAfter: 6,
+             seeded: true, targetCount: 12, rampSpan: 12, rampBySpawned: true, fixedColumns: 30 },
 };
 function mode() {
   return MODES[state.gameMode] || MODES.classic;
@@ -88,6 +97,137 @@ const DECOY_MESSAGES = {
 const COMPLEMENT = { A: "T", T: "A", G: "C", C: "G" };
 const BASES = ["A", "T", "G", "C"];
 
+// ---------- 1.6. SEEDED RANDOMNESS + THE DAILY ----------
+// Every random draw in the game - strand bases, site positions, which way a
+// site faces, decoy kinds and mutations - goes through rng(). Normal play
+// uses Math.random. The daily challenge seeds a small PRNG from the date, so
+// everyone playing it meets the same strand and the same targets, in the
+// same order, with the same decoys - and has only their own hands to blame.
+let rng = Math.random;
+
+function hashSeed(str) {                    // FNV-1a, 32-bit
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// What difficulty ramps on. Normal modes ramp on cuts landed. The daily
+// ramps on targets served, so everyone meets the same target at the same
+// difficulty whether or not they hit the ones before it.
+function progress() {
+  return mode().rampBySpawned ? state.spawned : state.cuts;
+}
+
+// One puzzle a day, the same for everyone: the local date seeds it. A
+// ?day=YYYY-MM-DD query replays a past day; tests pin one via state.dailyDate.
+const DAILY_EPOCH = Date.UTC(2026, 8, 10);   // Daily #1
+const SHARE_URL = "https://rachelselbrede.github.io/cutsite/";
+
+function dailyDateKey() {
+  if (state.dailyDate) return state.dailyDate;
+  const q = new URLSearchParams(location.search).get("day");
+  if (q && /^\d{4}-\d{2}-\d{2}$/.test(q)) return q;
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function dailyNumberFor(key) {
+  const [y, mo, d] = key.split("-").map(Number);
+  return Math.floor((Date.UTC(y, mo - 1, d) - DAILY_EPOCH) / 86400000) + 1;
+}
+
+function loadDailyRecord(key) {
+  try {
+    const r = JSON.parse(localStorage.getItem("cutsite-daily-" + key) || "null");
+    return r && Array.isArray(r.outcomes) ? r : null;
+  } catch (e) { return null; }
+}
+
+function saveDailyRecord(key, rec) {
+  try { localStorage.setItem("cutsite-daily-" + key, JSON.stringify(rec)); }
+  catch (e) { /* private mode: the run still shows, it just will not be remembered */ }
+}
+
+// One mark per target, in order: a clean cut, a miss, or the wrong site cut.
+function dailyMarks(outcomes) {
+  return outcomes.map((o) => (o === "hit" ? "✂️" : o === "tolerated" ? "💥" : "❌")).join("");
+}
+function dailyShareLine(rec) {
+  return dailyMarks(rec.outcomes) + " · " + rec.score.toLocaleString() + " pts";
+}
+function dailyShareText(rec) {
+  return "CutSite Daily #" + rec.number + " · " + rec.cuts + "/" + rec.total + " cut · " +
+    rec.score.toLocaleString() + " pts\n" + dailyMarks(rec.outcomes) + "\n" + SHARE_URL;
+}
+
+// The daily's first finished run of the day is the one that counts, as in
+// any daily puzzle; later runs are practice. An abandoned run records
+// nothing, so a stray Escape cannot burn the day.
+function finishDaily() {
+  const m = mode();
+  if (!m.targetCount) return;
+  const key = dailyDateKey();
+  const number = dailyNumberFor(key);
+  const completed = state.outcomes.length >= m.targetCount;
+  let record = loadDailyRecord(key);
+  if (completed && !record) {
+    const total = state.cuts + state.misses;
+    record = {
+      number, date: key, score: state.score, cuts: state.cuts, total: m.targetCount,
+      accuracy: total ? Math.round((state.cuts / total) * 100) : 0,
+      outcomes: state.outcomes.slice(),
+    };
+    saveDailyRecord(key, record);
+    el.endTitle.textContent = "Daily #" + number + " complete";
+  } else if (completed) {
+    el.endTitle.textContent = "Daily #" + number + " — practice run (first run counts: " +
+      record.score.toLocaleString() + " pts)";
+  } else {
+    el.endTitle.textContent = "Daily #" + number + " — not finished";
+  }
+  // The share row takes the end-note's slot, so the card stays the same height.
+  el.endNote.classList.add("hidden");
+  if (record) {
+    el.shareText.textContent = dailyShareLine(record);
+    el.share.dataset.text = dailyShareText(record);
+    el.share.classList.remove("hidden");
+  }
+}
+
+async function copyShare() {
+  const text = el.share.dataset.text || "";
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch (e) {
+    // file:// and older browsers: a throwaway textarea and the legacy command.
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand("copy"); } catch (e2) { ok = false; }
+    ta.remove();
+  }
+  el.shareBtn.textContent = ok ? "Copied" : "Copy failed";
+  setTimeout(() => { el.shareBtn.textContent = "Copy result"; }, 1500);
+}
+
 // ---------- 2. STATE ----------
 const state = {
   running: false,
@@ -107,6 +247,9 @@ const state = {
   offTargets: 0,        // stray cuts on non-target DNA this round
   lockedUntil: 0,       // performance.now() timestamp the blades free up
   cursor: 0,            // column the keyboard is pointing at
+  spawned: 0,           // targets served this round
+  outcomes: [],         // one of "hit" | "miss" | "tolerated" per resolved target
+  dailyDate: null,      // pins a day for the daily (tests, replays); null means today
 };
 
 // ---------- 1.5. ACHIEVEMENTS ----------
@@ -126,6 +269,10 @@ const el = {
   score: document.getElementById("score"),
   combo: document.getElementById("combo"),
   time: document.getElementById("time"),
+  timeLabel: document.getElementById("time-label"),
+  share: document.getElementById("share"),
+  shareText: document.getElementById("share-text"),
+  shareBtn: document.getElementById("share-btn"),
   difficulty: document.getElementById("difficulty"),
   accuracyDisplay: document.getElementById("accuracy-display"),
   guideSeq: document.getElementById("guide-seq"),
@@ -164,6 +311,7 @@ if (el.startBtn) el.startBtn.addEventListener("click", startGame);
 if (el.againBtn) el.againBtn.addEventListener("click", startGame);
 if (el.muteBtn) el.muteBtn.addEventListener("click", toggleMute);
 if (el.stopBtn) el.stopBtn.addEventListener("click", endGame);
+if (el.shareBtn) el.shareBtn.addEventListener("click", copyShare);
 
 // Mode selection listeners
 document.querySelectorAll(".mode-btn").forEach(btn => {
@@ -212,6 +360,9 @@ window.addEventListener("resize", () => {
 // On narrow screens 30 columns squeeze below a usable finger width, so the
 // strand shortens instead: fewer, fatter base pairs to tap.
 function strandColumnCount() {
+  // The daily is the same puzzle for everyone, so it is the same strand
+  // for everyone: the full width, whatever the screen.
+  if (mode().fixedColumns) return mode().fixedColumns;
   const w = window.innerWidth;
   let count = CONFIG.strandLength;
   if (w < 480) count = 16;
@@ -227,7 +378,7 @@ function buildStrand() {
   el.strand.innerHTML = "";
   const count = strandColumnCount();
   for (let i = 0; i < count; i++) {
-    const top = BASES[Math.floor(Math.random() * 4)];
+    const top = BASES[Math.floor(rng() * 4)];
     const bottom = COMPLEMENT[top];
 
     const col = document.createElement("div");
@@ -252,8 +403,13 @@ function columns() {
 // ---------- 5. GAME FLOW ----------
 function startGame() {
   clearTimers();
-  buildStrand();
   const m = mode();
+  // The daily seeds every draw from the date, so the strand built next and
+  // every target after it are the same for everyone playing it.
+  rng = m.seeded ? mulberry32(hashSeed("cutsite-daily-" + dailyDateKey())) : Math.random;
+  state.spawned = 0;
+  state.outcomes = [];
+  buildStrand();
 
   state.running = true;
   state.score = 0;
@@ -293,11 +449,19 @@ function startGame() {
   // Untimed modes swap the countdown for a stop button. Hide the whole
   // stat box, not just the number, so no empty panel is left.
   const timeStat = el.time.closest(".stat");
-  if (!m.timed) {
+  if (m.targetCount) {
+    // A fixed number of targets: the clock's box counts them instead.
+    timeStat.classList.remove("hidden");
+    el.timeLabel.textContent = "Target";
+    el.time.textContent = "0 / " + m.targetCount;
+    el.stopBtn.classList.remove("hidden");
+  } else if (!m.timed) {
     timeStat.classList.add("hidden");
+    el.timeLabel.textContent = "Time";
     el.stopBtn.classList.remove("hidden");
   } else {
     timeStat.classList.remove("hidden");
+    el.timeLabel.textContent = "Time";
     el.stopBtn.classList.add("hidden");
   }
 
@@ -355,6 +519,13 @@ function endGame() {
   // Populate leaderboard for the mode just played
   renderLeaderboard(mode, saved);
 
+  // Normal randomness again whatever comes next, then the daily's verdict:
+  // it retitles the card and swaps the end-note for the share row.
+  rng = Math.random;
+  el.share.classList.add("hidden");
+  el.endNote.classList.remove("hidden");
+  finishDaily();
+
   el.cardStart.classList.add("hidden");
   el.cardEnd.classList.remove("hidden");
   el.overlay.classList.remove("hidden");
@@ -362,7 +533,14 @@ function endGame() {
 
 // ---------- 6. THE TARGET LOOP ----------
 function scheduleSpawn(delay) {
-  state.timers.spawn = setTimeout(spawnTarget, delay);
+  // A fixed-length round ends once its last target has been resolved, after
+  // the same short pause a spawn would get.
+  state.timers.spawn = setTimeout(roundFinished() ? endGame : spawnTarget, delay);
+}
+
+function roundFinished() {
+  const m = mode();
+  return !!m.targetCount && state.spawned >= m.targetCount;
 }
 
 // Pick `count` non-overlapping windows of protospacer + PAM, each at least
@@ -375,7 +553,7 @@ function placeWindows(colCount, count) {
   for (let attempt = 0; attempt < 200; attempt++) {
     const starts = [];
     for (let k = 0; k < count; k++) {
-      const s = Math.floor(Math.random() * (colCount - span + 1));
+      const s = Math.floor(rng() * (colCount - span + 1));
       if (starts.some((o) => Math.abs(o - s) < span + SITE_GAP)) break;
       starts.push(s);
     }
@@ -463,7 +641,7 @@ function spawnTarget() {
 
   // The strand may be shorter than CONFIG.strandLength on small screens, so
   // fit as many decoys as the real column count allows.
-  let decoys = m.decoys(state.cuts);
+  let decoys = m.decoys(progress());
   let starts = placeWindows(cols.length, decoys + 1);
   while (!starts && decoys > 0) starts = placeWindows(cols.length, --decoys + 1);
 
@@ -471,8 +649,8 @@ function spawnTarget() {
   // per mode: the reflex modes show them from the start, since a glow is a
   // glow, but Guide RNA holds them back until reading forward sites is
   // second nature - and each site faces its own way, as in a genome.
-  const allowReverse = state.cuts >= m.reverseAfter;
-  const layout = (w) => siteLayout(w, allowReverse && Math.random() < CONFIG.reverseChance);
+  const allowReverse = progress() >= m.reverseAfter;
+  const layout = (w) => siteLayout(w, allowReverse && rng() < CONFIG.reverseChance);
 
   const site = layout(starts[0]);
   const { start, end } = site;
@@ -496,9 +674,9 @@ function spawnTarget() {
   // base has to be read, so it joins the pool only once a player has a few
   // cuts in. The pool is shuffled so a two-decoy spawn always shows two
   // different kinds and a one-decoy spawn is unpredictable.
-  const pool = state.cuts < 4 ? ["nopam", "seed"] : ["nopam", "seed", "distal"];
+  const pool = progress() < 4 ? ["nopam", "seed"] : ["nopam", "seed", "distal"];
   for (let i = pool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   const decoyRuns = [];
@@ -510,14 +688,14 @@ function spawnTarget() {
     if (kind === "nopam") {
       // Any triplet that is not NGG: one G position is forced off G on the
       // site's own strand.
-      write(gFirst, BASES[Math.floor(Math.random() * 4)]);
+      write(gFirst, BASES[Math.floor(rng() * 4)]);
       write(gSecond, randomBaseExcept(gOnSiteStrand(d)));
     } else {
       pamGColumns(d).forEach((i) => write(i, gOnSiteStrand(d)));
       // One mismatch: in the seed (the two bases beside the PAM) or at the
       // far end. The middle base is left alone so the kinds never blur.
       const pair = kind === "seed" ? seedColumns(d) : distalColumns(d);
-      const pos = pair[Math.floor(Math.random() * 2)];
+      const pos = pair[Math.floor(rng() * 2)];
       write(pos, randomBaseExcept(readBase(pos)));
     }
     for (let i = 0; i < CONFIG.pamLength; i++) cols[d.pamStart + i].classList.add("pam");
@@ -543,6 +721,8 @@ function spawnTarget() {
     start, end, reverse: site.reverse, pamStart: site.pamStart, breakIndex, guide,
     spawnedAt: performance.now(), window: windowMs, restore, decoys: decoyRuns,
   };
+  state.spawned++;
+  if (m.targetCount) el.time.textContent = state.spawned + " / " + m.targetCount;
   relabelColumns();
   // The strand tag would narrow the field with decoys on screen, so it only
   // shows for a single target.
@@ -555,6 +735,7 @@ function spawnTarget() {
 function onExpire() {
   if (!state.activeTarget) return;
   clearTarget();
+  state.outcomes.push("miss");
   state.combo = 1;
   el.combo.textContent = "\u00d71";
   state.misses++;
@@ -792,6 +973,7 @@ function registerTolerated(col) {
   bump(el.combo);
   updateAccuracyDisplay();
 
+  state.outcomes.push("tolerated");
   // Spend the target before the animations, as registerHit does, so
   // clearTarget cannot strip them the instant they are added.
   clearTarget();
@@ -824,6 +1006,7 @@ function registerHit(col) {
   let gained = (CONFIG.basePoints + bonus) * state.combo;
 
   state.cuts++;
+  state.outcomes.push("hit");
   const comboBefore = state.combo;
   state.combo = Math.min(CONFIG.comboCap, state.combo + 1);
   state.maxCombo = Math.max(state.maxCombo, state.combo);
@@ -906,10 +1089,11 @@ function registerHit(col) {
 // never so tight as to be impossible.
 function currentWindow() {
   const m = mode();
-  const ramp = Math.min(1, state.cuts / CONFIG.rampCuts);
+  const span = m.rampSpan || CONFIG.rampCuts;
+  const ramp = Math.min(1, progress() / span);
   let w = m.windowStart - (m.windowStart - m.windowMin) * ramp;
-  if (state.cuts > CONFIG.rampCuts) {
-    const beyond = state.cuts - CONFIG.rampCuts;
+  if (progress() > span) {
+    const beyond = progress() - span;
     const squeeze = 1 - Math.exp(-beyond / CONFIG.lateRampCuts);
     w = m.windowMin - (m.windowMin - m.windowFloor) * squeeze;
   }
@@ -994,7 +1178,7 @@ function setStatus(text, hot) {
 
 function randomBaseExcept(letter) {
   const pool = BASES.filter((b) => b !== letter);
-  return pool[Math.floor(Math.random() * pool.length)];
+  return pool[Math.floor(rng() * pool.length)];
 }
 
 // The guide is RNA, so it is shown 5' to 3' with U in place of T. Its spacer

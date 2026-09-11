@@ -736,6 +736,119 @@
   });
 
   // ============================================================
+  // The daily challenge
+  // ============================================================
+  // Play a pinned day's daily far enough to read its first `targets` targets.
+  function dailyRun(day, targets) {
+    state.dailyDate = day;
+    freeze("daily");
+    const strand = cols().map(topOf).join("");
+    const sites = [];
+    for (let n = 0; n < targets; n++) {
+      const t = state.activeTarget;
+      sites.push([t.start, t.end, t.reverse ? "r" : "f", t.pamStart, t.guide.join(""),
+        t.decoys.map(function (d) { return d.kind + (d.reverse ? "r" : "f") + d.start + ":" + site5to3(d); }).join("|"),
+      ].join(","));
+      clearTarget();
+      if (n < targets - 1) { spawnTarget(); clearTimeout(state.timers.expiry); }
+    }
+    state.dailyDate = null;
+    return { strand: strand, sites: sites };
+  }
+
+  test("daily: the same day gives everyone the same strand and the same targets", function () {
+    const a = dailyRun("2026-09-10", 8), b = dailyRun("2026-09-10", 8);
+    eq(a.strand, b.strand, "the strand should be identical");
+    eq(a.sites.join("\n"), b.sites.join("\n"), "targets, decoys and orientations should be identical, in order");
+    const c = dailyRun("2026-09-11", 8);
+    assert(c.strand !== a.strand || c.sites.join() !== a.sites.join(), "a different day should be a different puzzle");
+  });
+
+  test("daily: difficulty ramps on targets served, so a miss never changes what comes next", function () {
+    // Two players, same day: one hits everything, one misses everything.
+    const seen = function (hit) {
+      state.dailyDate = "2026-09-10";
+      freeze("daily");
+      const out = [];
+      for (let n = 0; n < 8; n++) {
+        const t = state.activeTarget;
+        out.push(t.start + ":" + t.decoys.length + ":" + (t.reverse ? "r" : "f") + ":" + t.window);
+        if (hit) click(cols()[t.start]); else onExpire();
+        clearTimeout(state.timers.spawn);
+        if (n < 7) { spawnTarget(); clearTimeout(state.timers.expiry); }
+      }
+      state.dailyDate = null;
+      return out;
+    };
+    const hitter = seen(true), misser = seen(false);
+    eq(misser.join(" "), hitter.join(" "), "both players should meet the same targets, decoys, windows, in the same order");
+    assert(misser.some(function (x) { return /:2:/.test(x); }), "the second decoy should still arrive for the player who keeps missing");
+  });
+
+  test("daily: counts targets in the clock's box, uses the full strand on any screen, and ends after the last one", function () {
+    state.dailyDate = "2026-09-10";
+    state.gameMode = "daily";
+    withWidth(375, function () { eq(strandColumnCount(), 30, "the daily should use the full strand even on a phone"); });
+    freeze("daily");
+    eq(el.timeLabel.textContent, "Target", "the clock's box should count targets");
+    eq(el.time.textContent, "1 / 12", "first target served");
+    assert(!roundFinished(), "not finished after one target");
+    for (let n = 1; n < 12; n++) { clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry); }
+    eq(el.time.textContent, "12 / 12", "twelfth target served");
+    assert(roundFinished(), "finished once the twelfth target is served, so the next spawn slot ends the round");
+    freeze("classic");
+    eq(el.timeLabel.textContent, "Time", "classic gets its clock back");
+    state.dailyDate = null;
+  });
+
+  test("daily: the first finished run counts, later runs are practice, an unfinished run records nothing", function () {
+    localStorage.clear();
+    state.dailyDate = "2026-09-10";
+    freeze("daily");
+    endGame();
+    assert(!loadDailyRecord("2026-09-10"), "an abandoned run must not burn the day");
+    assert(/not finished/.test(el.endTitle.textContent), "title: " + el.endTitle.textContent);
+    assert(el.share.classList.contains("hidden"), "nothing to share yet");
+
+    // A finished run: hit the first target, miss the other eleven.
+    freeze("daily");
+    click(cols()[state.activeTarget.start]); clearTimeout(state.timers.spawn);
+    for (let n = 1; n < 12; n++) { spawnTarget(); clearTimeout(state.timers.expiry); onExpire(); clearTimeout(state.timers.spawn); }
+    eq(state.outcomes.length, 12, "twelve outcomes");
+    endGame();
+    const rec = loadDailyRecord("2026-09-10");
+    assert(rec, "a finished run should be recorded");
+    eq(rec.number, 1, "10 Sep 2026 is Daily #1");
+    eq(rec.cuts, 1, "one cut");
+    eq(rec.outcomes.length, 12, "twelve marks");
+    assert(/Daily #1 complete/.test(el.endTitle.textContent), "title: " + el.endTitle.textContent);
+    assert(!el.share.classList.contains("hidden"), "the share row should show");
+    assert(el.endNote.classList.contains("hidden"), "the share row takes the end-note's slot");
+    const text = el.share.dataset.text;
+    assert(/^CutSite Daily #1 /.test(text), "the share text should name the daily: " + text.split("\n")[0]);
+    eq((text.match(/✂/g) || []).length, 1, "one scissors mark for the one cut");
+    eq((text.match(/❌/g) || []).length, 11, "eleven miss marks");
+    assert(text.indexOf(SHARE_URL) >= 0, "and it should carry the link");
+
+    // A second finished run is practice and leaves the record alone.
+    freeze("daily");
+    for (let n = 0; n < 12; n++) {
+      if (n) { spawnTarget(); clearTimeout(state.timers.expiry); }
+      click(cols()[state.activeTarget.start]); clearTimeout(state.timers.spawn);
+    }
+    endGame();
+    eq(loadDailyRecord("2026-09-10").cuts, 1, "the first run should still be the one that counts");
+    assert(/practice run/.test(el.endTitle.textContent), "title: " + el.endTitle.textContent);
+
+    // And nothing leaks into other modes.
+    freeze("classic"); endGame();
+    assert(el.share.classList.contains("hidden"), "classic should not show a share row");
+    assert(!el.endNote.classList.contains("hidden"), "classic gets its end-note back");
+    eq(rng, Math.random, "normal randomness should be back after a daily");
+    state.dailyDate = null;
+  });
+
+  // ============================================================
   // Keyboard play and screen-reader announcements
   // ============================================================
   function key(k, code) {
