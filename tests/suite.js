@@ -418,6 +418,37 @@
     }
   });
 
+  test("guide mode: a spawn that asks for two decoys always gets two, and every window fits the strand", function () {
+    freeze("guide", 20);
+    const last = cols().length - 1;
+    const seenLeft = {};
+    for (let n = 0; n < 300; n++) {
+      const t = state.activeTarget;
+      eq(t.decoys.length, 2, "spawn " + n + " should carry two decoys");
+      [t].concat(t.decoys).forEach(function (s) {
+        const lo = Math.min(s.start, s.pamStart), hi = Math.max(s.end, s.pamStart + CONFIG.pamLength - 1);
+        assert(lo >= 0 && hi <= last, "a site ran off the strand: " + lo + ".." + hi);
+      });
+      // and the real target is not always the leftmost site
+      const leftmost = Math.min.apply(null, [t.start].concat(t.decoys.map(function (d) { return d.start; })));
+      seenLeft[leftmost === t.start ? "target" : "decoy"] = true;
+      clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
+    }
+    assert(seenLeft.target && seenLeft.decoy, "the target should sometimes be the leftmost site and sometimes not");
+  });
+
+  test("daily: targets five to twelve all carry two decoys", function () {
+    state.dailyDate = "2026-09-10";
+    freeze("daily");
+    const counts = [];
+    for (let n = 0; n < 12; n++) {
+      if (n) { clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry); }
+      counts.push(state.activeTarget.decoys.length);
+    }
+    state.dailyDate = null;
+    eq(counts.join(""), "111122222222", "decoys per target");
+  });
+
   test("guide mode: sites never overlap and keep a readable gap", function () {
     freeze("guide", 10);
     for (let n = 0; n < 150; n++) {

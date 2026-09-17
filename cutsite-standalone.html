@@ -1692,21 +1692,39 @@ function roundFinished() {
 
 // Pick `count` non-overlapping windows of protospacer + PAM, each at least
 // SITE_GAP plain columns clear of the next so the glows read as separate
-// sites rather than one long smear. Returns null if they will not fit, so
-// the caller can retry with fewer decoys.
+// sites rather than one long smear. Returns null only if they cannot fit.
+//
+// The windows are drawn outright rather than by trial. Think of the strand
+// as the windows plus the spare columns around them: choosing `count`
+// distinct slots from spare-plus-count and sorting them fixes how much
+// spare goes before each window, and every such draw is a valid, uniformly
+// likely arrangement. Drawing starts at random and retrying used to give up
+// about a third of the time on a full strand, because three windows fit
+// thirty columns in only ten ways, and spawnTarget quietly fell back to one
+// decoy. The result is shuffled so the real target is not always the
+// leftmost site.
 const SITE_GAP = 2;
 function placeWindows(colCount, count) {
   const span = CONFIG.targetLength + CONFIG.pamLength;
-  for (let attempt = 0; attempt < 200; attempt++) {
-    const starts = [];
-    for (let k = 0; k < count; k++) {
-      const s = Math.floor(rng() * (colCount - span + 1));
-      if (starts.some((o) => Math.abs(o - s) < span + SITE_GAP)) break;
-      starts.push(s);
-    }
-    if (starts.length === count) return starts;
+  const spare = colCount - count * span - (count - 1) * SITE_GAP;
+  if (spare < 0) return null;
+  const slots = Array.from({ length: spare + count }, (_, i) => i);
+  const picks = [];
+  for (let k = 0; k < count; k++) {
+    const j = k + Math.floor(rng() * (slots.length - k));
+    [slots[k], slots[j]] = [slots[j], slots[k]];
+    picks.push(slots[k]);
   }
-  return null;
+  picks.sort((a, b) => a - b);
+  // The k-th pick, less the k slots the earlier windows took, is the spare
+  // before window k; the window itself then follows the k windows and gaps
+  // before it.
+  const starts = picks.map((p, k) => (p - k) + k * (span + SITE_GAP));
+  for (let i = starts.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [starts[i], starts[j]] = [starts[j], starts[i]];
+  }
+  return starts;
 }
 
 // Where a site's pieces sit on screen for a window that begins at column w.
