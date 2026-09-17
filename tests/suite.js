@@ -8,8 +8,12 @@
    assertion below is made against the real DOM the game draws.
 
    Run it with:  python3 tests/run.py
+
+   A few tests measure layout, and the web fonts change it, so the
+   suite runs once the fonts have loaded (or failed to, offline):
+   the numbers are then the ones a player sees, the same every run.
    ============================================================ */
-(function () {
+function runCutSiteSuite() {
   "use strict";
 
   // ---------- tiny harness ----------
@@ -1480,4 +1484,5 @@
   pre.id = "cutsite-test-output";
   pre.textContent = lines.join("\n");
   document.body.appendChild(pre);
-})();
+}
+document.fonts.ready.then(runCutSiteSuite, runCutSiteSuite);

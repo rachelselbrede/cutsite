@@ -515,7 +515,7 @@ body {
   background: linear-gradient(180deg, var(--panel), var(--bg-2));
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
-  padding: 14px 12px;
+  padding: 12px;
 }
 .card.hidden { display: none; }
 /* The end card takes focus when a round ends. The ring shows only for a
@@ -533,7 +533,7 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   align-items: start;
-  margin: 4px 0 6px;
+  margin: 2px 0 4px;
 }
 /* Grid children default to min-width: auto, which lets a block wider than
    its column push the whole body past the card edge instead of shrinking. */
@@ -586,7 +586,7 @@ body {
   display: flex;
   justify-content: center;
   gap: 20px;
-  margin: 6px 0 12px;
+  margin: 4px 0 8px;
 }
 .scoreline-num {
   display: block;
@@ -602,7 +602,7 @@ body {
   letter-spacing: 0.14em;
   color: var(--muted);
 }
-.end-note { min-height: 1.2em; }
+.end-note { min-height: 1.2em; margin-bottom: 10px; }
 .card-warn {
   border-left: 2px solid var(--danger);
   padding-left: 10px;
@@ -651,7 +651,7 @@ body {
   justify-content: center;
   flex-wrap: wrap;
   gap: 10px;
-  margin: 0 0 12px;
+  margin: 0 0 10px;
   min-height: 1.2em;
 }
 .share code {
@@ -819,7 +819,7 @@ body {
 /* ---------- achievements ---------- */
 .achievements-earned {
   margin: 10px 0;
-  padding: 8px 10px;
+  padding: 6px 10px;
   background: rgba(46, 230, 200, 0.1);
   border: 1px solid var(--glow-soft);
   border-radius: 10px;
@@ -849,11 +849,11 @@ body {
 .achievement-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 5px;
-  margin-top: 6px;
+  gap: 4px;
+  margin-top: 4px;
 }
 .achievement {
-  padding: 5px 4px;
+  padding: 4px;
   text-align: center;
   border-radius: 8px;
   border: 1px solid transparent;

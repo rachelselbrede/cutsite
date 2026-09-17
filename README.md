@@ -154,7 +154,9 @@ python3 tests/run.py
 No test framework, and still nothing to install. The suite runs the real game
 in a real browser: `tests/run.py` serves the repo, copies `index.html` with
 `tests/suite.js` injected just after `script.js` — so the tests share the
-game's own scope — and reads the results back out of headless Chrome.
+game's own scope — and reads the results back out of headless Chrome. It
+waits for the web fonts before it starts, so the few tests that measure
+layout see what a player sees.
 
 Most of the 93 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
