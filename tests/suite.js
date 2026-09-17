@@ -526,6 +526,21 @@
     assert(at(200) <= 100, "and it never reads past 100%");
   });
 
+  test("difficulty: the readout describes the target on screen, and moves in the Daily without a hit", function () {
+    state.dailyDate = "2026-09-10";
+    freeze("daily");
+    eq(el.difficulty.textContent, "0%", "the first target opens at the widest window");
+    for (let n = 1; n < 12; n++) { onExpire(); clearTimeout(state.timers.spawn); spawnTarget(); clearTimeout(state.timers.expiry); }
+    state.dailyDate = null;
+    const t = state.activeTarget;
+    eq(el.difficulty.textContent, difficultyPercent(t.window) + "%", "the readout should match the live target's window");
+    assert(parseInt(el.difficulty.textContent, 10) > 50,
+           "eleven misses in, the twelfth target should read well past halfway: " + el.difficulty.textContent);
+    eq(el.difficulty.getAttribute("data-level"), "high", "and colour accordingly");
+    freeze("classic");
+    eq(el.difficulty.textContent, "0%", "classic opens at 0%");
+  });
+
   test("difficulty: guide mode is a reading mode and does not squeeze", function () {
     state.gameMode = "guide";
     state.cuts = 300;
