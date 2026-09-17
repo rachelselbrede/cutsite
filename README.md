@@ -41,6 +41,9 @@ no build step. To run it locally, open `index.html` in a browser.
   remembers your choice.
 - **No reloads** — the end card offers *Edit again* for the same mode and
   *Change mode* for the picker, so a whole session runs from one page load.
+- **Pauses when you look away** — a hidden tab freezes the round instead of
+  letting its timers run on. Come back and the target is where you left it,
+  with nothing counted against you.
 - **Plays on a phone** — in Classic and Zen the strand shortens on narrow
   screens so every base pair stays big enough to tap. Guide RNA and the Daily
   keep all thirty base pairs and wrap them into two rows instead, the way a
@@ -146,7 +149,7 @@ in a real browser: `tests/run.py` serves the repo, copies `index.html` with
 `tests/suite.js` injected just after `script.js` — so the tests share the
 game's own scope — and reads the results back out of headless Chrome.
 
-Most of the 83 tests guard the biology, because that is the part of this
+Most of the 86 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a

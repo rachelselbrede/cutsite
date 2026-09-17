@@ -999,6 +999,53 @@
   });
 
   // ============================================================
+  // Pausing
+  // ============================================================
+  test("pause: a hidden tab freezes a live target and hands it back with its clock shifted", function () {
+    const t = freeze("classic");
+    t.spawnedAt = performance.now() - 1000;          // 500 ms of a 1500 ms window left
+    state.combo = 4;
+    pauseRound();
+    assert(state.paused, "the round should be paused");
+    assert(/Paused/.test(el.status.textContent), "the status should say so");
+    state.paused.at -= 60000;                        // a minute away
+    resumeRound();
+    assert(!state.paused, "the round should be running again");
+    assert(state.activeTarget === t, "the same target should still be live");
+    eq(state.misses, 0, "time away must not count as a miss");
+    eq(state.combo, 4, "nor break the combo");
+    eq(state.outcomes.length, 0, "nor resolve the target");
+    const elapsed = performance.now() - t.spawnedAt;
+    assert(elapsed >= 700 && elapsed <= 800,
+           "the target's clock should skip the time away and keep at least half the window: elapsed " + Math.round(elapsed));
+    assert(state.timers.expiry, "the expiry timer should be re-armed");
+    assert(state.timers.round, "and the round clock restarted");
+    assert(/Target locked/.test(el.status.textContent), "the status should be back to the target");
+  });
+
+  test("pause: between targets, the pending spawn waits out the pause too", function () {
+    const t = freeze("classic");
+    click(cols()[t.start]);                          // a hit: the next spawn is pending
+    assert(state.spawnDue > 0, "a spawn should be pending");
+    pauseRound();
+    assert(state.paused.spawnIn > 0 && state.paused.spawnIn <= CONFIG.gapAfterHit,
+           "the pause should remember how long the spawn had left");
+    eq(state.activeTarget, null, "no target is live");
+    resumeRound();
+    assert(state.spawnDue > 0, "the spawn should be re-armed on return");
+    eq(state.activeTarget, null, "and nothing should spawn early");
+  });
+
+  test("pause: does nothing between rounds", function () {
+    freeze("classic");
+    endGame();
+    pauseRound();
+    assert(!state.paused, "there is nothing to pause after the round");
+    resumeRound();
+    assert(!state.running, "and nothing to resume");
+  });
+
+  // ============================================================
   // Between rounds
   // ============================================================
   test("end card: takes focus when the round ends, as a dialog named by its title", function () {

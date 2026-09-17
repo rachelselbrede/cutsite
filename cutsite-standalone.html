@@ -1354,6 +1354,8 @@ const state = {
   spawned: 0,           // targets served this round
   outcomes: [],         // one of "hit" | "miss" | "tolerated" per resolved target
   dailyDate: null,      // pins a day for the daily (tests, replays); null means today
+  spawnDue: 0,          // performance.now() the pending spawn is due, 0 if none
+  paused: null,         // { at, targetLeft, spawnIn } while the tab is hidden mid-round
 };
 
 // ---------- 1.5. ACHIEVEMENTS ----------
@@ -1571,6 +1573,7 @@ function startGame() {
   state.consecutivePerfects = 0;
   state.offTargets = 0;
   state.lockedUntil = 0;
+  state.paused = null;
 
   el.score.textContent = "0";
   el.combo.textContent = "\u00d71";
@@ -1612,16 +1615,21 @@ function startGame() {
     el.stopBtn.classList.add("hidden");
   }
 
-  if (m.timed) {
-    state.timers.round = setInterval(() => {
-      state.timeLeft--;
-      el.time.textContent = state.timeLeft;
-      if (state.timeLeft <= 10) el.time.classList.add("low");
-      if (state.timeLeft <= 0) endGame();
-    }, 1000);
-  }
+  if (m.timed) startClock();
 
   scheduleSpawn(600);
+}
+
+// The round clock of a timed mode. Restarted after a pause, so it ticks
+// only while the round is on screen.
+function startClock() {
+  clearInterval(state.timers.round);
+  state.timers.round = setInterval(() => {
+    state.timeLeft--;
+    el.time.textContent = state.timeLeft;
+    if (state.timeLeft <= 10) el.time.classList.add("low");
+    if (state.timeLeft <= 0) endGame();
+  }, 1000);
 }
 
 function endGame() {
@@ -1700,6 +1708,7 @@ function showStartCard() {
 function scheduleSpawn(delay) {
   // A fixed-length round ends once its last target has been resolved, after
   // the same short pause a spawn would get.
+  state.spawnDue = performance.now() + delay;
   state.timers.spawn = setTimeout(roundFinished() ? endGame : spawnTarget, delay);
 }
 
@@ -1799,6 +1808,7 @@ function readSite(site, readTop) {
 
 function spawnTarget() {
   if (!state.running) return;
+  state.spawnDue = 0;
 
   const cols = columns();
   const m = mode();
@@ -1910,9 +1920,59 @@ function spawnTarget() {
   // The strand tag would narrow the field with decoys on screen, so it only
   // shows for a single target.
   showGuide(guide, decoys === 0 ? (site.reverse ? "bottom" : "top") : null);
-  setStatus(decoys > 0 ? "Which site matches the guide? Check its PAM." : "Target locked. Cut it!", true);
+  setStatus(targetStatus(decoys), true);
 
   state.timers.expiry = setTimeout(onExpire, windowMs);
+}
+
+function targetStatus(decoys) {
+  return decoys > 0 ? "Which site matches the guide? Check its PAM." : "Target locked. Cut it!";
+}
+
+// ---------- 6.5. PAUSING ----------
+// A hidden tab throttles timers but does not stop them, so switching away
+// mid-round used to come back to a run of expired targets and, in Zen, a
+// broken combo. The round pauses instead: on hide the timers stop, and on
+// return they pick up where they left off, with the live target's clock
+// shifted so the time away is invisible to scoring.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pauseRound(); else resumeRound();
+});
+
+function pauseRound() {
+  if (!state.running || state.paused) return;
+  const now = performance.now();
+  const t = state.activeTarget;
+  state.paused = {
+    at: now,
+    targetLeft: t ? Math.max(0, t.window - (now - t.spawnedAt)) : null,
+    spawnIn: state.spawnDue ? Math.max(0, state.spawnDue - now) : null,
+  };
+  clearTimers();
+  setStatus("Paused. Come back to keep editing.", false);
+}
+
+function resumeRound() {
+  const p = state.paused;
+  if (!p) return;
+  state.paused = null;
+  if (!state.running) return;
+  const now = performance.now();
+  const away = now - p.at;
+  if (state.lockedUntil > p.at) state.lockedUntil += away;
+  const t = state.activeTarget;
+  if (t) {
+    // The eye needs a moment to find the site again, so a target that was
+    // about to expire gets at least half its window back; otherwise its
+    // clock simply skips the time away.
+    const left = Math.max(p.targetLeft, t.window / 2);
+    t.spawnedAt = now - (t.window - left);
+    state.timers.expiry = setTimeout(onExpire, left);
+    setStatus(targetStatus(t.decoys.length), true);
+  } else if (p.spawnIn !== null) {
+    scheduleSpawn(p.spawnIn);
+  }
+  if (mode().timed) startClock();
 }
 
 function onExpire() {
@@ -2453,6 +2513,7 @@ function clearTimers() {
   clearInterval(state.timers.round);
   clearTimeout(state.timers.spawn);
   clearTimeout(state.timers.expiry);
+  state.spawnDue = 0;
 }
 
 function endMessage(cuts, acc, record) {
