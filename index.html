@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=27" />
+  <link rel="stylesheet" href="style.css?v=28" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -90,6 +90,12 @@
       <!-- Lives in the stage, not the overlay: the overlay is display:none
            while a round runs, which is exactly when this has to be reachable. -->
       <button class="btn hidden" id="stop-btn">Stop Editing</button>
+
+      <!-- The play area and the overlay share one grid cell, so the stage is
+           as tall as the taller of the two. A card that outgrows the play
+           area (the end card on a phone) grows the stage with it and the
+           page scrolls as one, with no scroll region nested inside it. -->
+      <div class="play">
       <div class="status" id="status" role="status" aria-live="polite">Load a guide RNA to begin</div>
       <div class="accuracy-display" id="accuracy-display">Accuracy: —</div>
 
@@ -109,6 +115,7 @@
       <div class="helix" id="helix">
         <div class="strand" id="strand" role="listbox" tabindex="0"
              aria-label="DNA strand. Arrow keys move along it, J jumps to the next fluorescing site, Enter cuts."></div>
+      </div>
       </div>
 
       <!-- Start / game-over overlay -->
@@ -196,6 +203,6 @@
 
   </main>
 
-  <script src="script.js?v=27"></script>
+  <script src="script.js?v=28"></script>
 </body>
 </html>

@@ -843,18 +843,22 @@
   // ============================================================
   // The start card once grew past the stage as features were described on
   // it, which put the mode picker and the Start button below the fold with
-  // nothing to say the overlay scrolled. Both cards have to fit the stage as
-  // delivered; the headless window is desktop-sized, so this is the layout a
-  // laptop gets.
+  // nothing to say the overlay scrolled. The overlay is no longer a scroll
+  // region at all: a card taller than the play area grows the stage. So on
+  // a desktop, which is what the headless window is, both cards must fit
+  // the stage at its resting height.
   function showCard(card) {
     el.overlay.classList.remove("hidden");
     el.cardStart.classList.toggle("hidden", card !== el.cardStart);
     el.cardEnd.classList.toggle("hidden", card !== el.cardEnd);
   }
   function overlayFits(what) {
-    assert(el.overlay.scrollHeight <= el.overlay.clientHeight,
-           what + " should fit the stage without scrolling: " + el.overlay.scrollHeight +
-           "px of content in a " + el.overlay.clientHeight + "px overlay");
+    const rest = parseFloat(getComputedStyle(el.stage).minHeight);
+    const height = el.stage.getBoundingClientRect().height;
+    assert(height <= rest + 0.5, what + " should fit the stage at its resting height: the stage grew to " +
+           Math.round(height) + "px from " + rest + "px");
+    assert(getComputedStyle(el.overlay).overflowY !== "auto" && getComputedStyle(el.overlay).overflowY !== "scroll",
+           "the overlay must not be a scroll region of its own");
   }
 
   test("start card: the rules start folded and Start sits inside the stage", function () {
@@ -869,6 +873,23 @@
       const r = b.getBoundingClientRect();
       assert(r.top >= stage.top && r.bottom <= stage.bottom, "every mode button should be in view: " + b.textContent);
     });
+  });
+
+  test("end card: the achievements fold on a phone unless the round unlocked something", function () {
+    localStorage.clear();
+    const fold = function () { return el.achievements.querySelector("details"); };
+    withWidth(375, function () {
+      renderAchievements([]);
+      assert(fold() && !fold().open, "nothing new on a phone: the panel starts folded");
+      renderAchievements(["firstBlood"]);
+      assert(fold().open, "something new on a phone: the panel starts open");
+      assert(/1 new/.test(el.achievements.querySelector(".achievement-progress").textContent), "and the summary says how many");
+    });
+    withWidth(1200, function () {
+      renderAchievements([]);
+      assert(fold().open, "a desktop has the room, so the panel starts open");
+    });
+    assert(/0 \/ 6/.test(el.achievements.querySelector(".achievement-progress").textContent), "the summary carries the count");
   });
 
   test("end card: fits the stage with a full board and every achievement", function () {

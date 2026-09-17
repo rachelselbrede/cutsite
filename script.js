@@ -1503,9 +1503,15 @@ function renderAchievements(newlyUnlocked) {
       `<div class="achievement-desc">${a.desc}</div></div>`;
   }).join("");
 
+  // On a phone the end card stacks its columns, so the tiles fold behind
+  // the summary line unless this round unlocked one; a desktop has the room.
+  const narrow = window.innerWidth < 720;
+  const open = !narrow || newlyUnlocked.length > 0;
+  const fresh = newlyUnlocked.length ? ` \u00b7 ${newlyUnlocked.length} new` : "";
   el.achievements.innerHTML =
-    `<div class="achievement-progress">\u{1F3C6} ${unlocked.length} / ${ids.length} achievements unlocked</div>` +
-    `<div class="achievement-grid">${tiles}</div>`;
+    `<details class="achievements-fold"${open ? " open" : ""}>` +
+    `<summary class="achievement-progress">\u{1F3C6} ${unlocked.length} / ${ids.length} unlocked${fresh}</summary>` +
+    `<div class="achievement-grid">${tiles}</div></details>`;
 }
 
 function checkAchievements() {

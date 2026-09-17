@@ -179,17 +179,27 @@ body {
 }
 
 /* ---------- stage ---------- */
+/* The play area and the overlay sit in the same grid cell, so the stage is
+   as tall as the taller of the two: normally its resting height, and on a
+   phone, where the end card stacks its columns, as tall as that card. The
+   page then scrolls as one; the overlay used to be a scroll region of its
+   own inside the stage, with the card's buttons out of sight. The padding
+   is kept in variables so the overlay can reach over it to the edges. */
 .stage {
+  --pad-top: 30px;
+  --pad-x: 22px;
+  --pad-bottom: 34px;
   position: relative;
   background:
     linear-gradient(180deg, rgba(20,34,60,0.6), rgba(9,16,30,0.6));
   border: 1px solid var(--panel-line);
   border-radius: var(--radius);
-  padding: 30px 22px 34px;
+  padding: var(--pad-top) var(--pad-x) var(--pad-bottom);
   min-height: 448px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  align-content: stretch;
   overflow: hidden;
   transition: transform 0.08s ease;
   /* rapid tapping must never trigger double-tap zoom, long-press must not
@@ -218,6 +228,13 @@ body {
     linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
   background-size: 26px 26px;
   pointer-events: none;
+}
+.play {
+  grid-area: 1 / 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .status {
   position: relative;
@@ -473,25 +490,22 @@ body {
 }
 
 /* ---------- overlay ---------- */
+/* In the stage's grid cell with the play area, reaching over the stage's
+   padding to its edges. It is never a scroll region: a card taller than the
+   play area makes the stage taller instead. */
 .overlay {
-  position: absolute;
-  inset: 0;
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 50;
+  margin: calc(-1 * var(--pad-top)) calc(-1 * var(--pad-x)) calc(-1 * var(--pad-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* "safe" keeps a card taller than the stage from overflowing past the top
-     edge, where it would be clipped and unreachable; it top-aligns instead
-     and the overlay scrolls. Browsers without it fall back to flex-start,
-     which is also never clipped. */
-  justify-content: safe center;
   gap: 10px;
   padding: 14px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
   background: rgba(6, 12, 24, 0.72);
   backdrop-filter: blur(3px);
-  z-index: 50;
 }
 .overlay > * { flex-shrink: 0; }
 .overlay.hidden { display: none; }
@@ -507,11 +521,12 @@ body {
 /* The end card takes focus when a round ends. The ring shows only for a
    keyboard player, in the same amber as every other focus ring here. */
 .card:focus { outline: none; }
-.card:focus-visible { outline: 2px solid var(--cas9); outline-offset: 2px; }
+.card:focus-visible { outline: 2px solid rgba(255, 178, 77, 0.55); outline-offset: 2px; }
 
 /* The end card is wider than the start card: its achievements and the top
-   ten sit side by side, which is what keeps it inside the stage with no
-   scrolling once both are on show. Narrow screens stack them and scroll. */
+   ten sit side by side, which is what keeps it inside the stage at its
+   resting height once both are on show. Narrow screens stack them, fold the
+   achievements, and let the stage grow to whatever is left. */
 #card-end { width: min(700px, 95%); }
 .end-body {
   display: grid;
@@ -657,7 +672,7 @@ body {
      and slimmer side padding hands every spare pixel to the columns. */
   .col { gap: 10px; padding: 12px 0; }
   .base { font-size: 0.68rem; }
-  .stage { padding-left: 12px; padding-right: 12px; }
+  .stage { --pad-x: 12px; }
   .helix { padding-left: 14px; padding-right: 14px; }
   /* A wrapped strand still has fifteen columns to a row, so the side
      padding goes to the columns; the 5'/3' marks hang in the stage's own
@@ -802,6 +817,15 @@ body {
   color: var(--glow);
   padding-bottom: 4px;
 }
+/* The panel folds behind its summary line. On a phone the end card stacks
+   its two columns and six tiles would push Edit again far down the page,
+   so script.js starts it closed there unless the round unlocked something;
+   a desktop has the room and starts it open. */
+.achievements-fold summary { list-style: none; cursor: pointer; white-space: nowrap; }
+.achievements-fold summary::-webkit-details-marker { display: none; }
+.achievements-fold summary::after { content: " \25BE"; font-size: 0.75em; }
+.achievements-fold[open] summary::after { content: " \25B4"; }
+.achievements-fold summary:focus-visible { outline: 2px solid var(--cas9); outline-offset: 2px; border-radius: 6px; }
 
 /* All six, as tiles: two across, three down, beside the top ten. Locked
    tiles keep their description on show, because "how do I get that one" is
