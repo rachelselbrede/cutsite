@@ -803,6 +803,12 @@ body {
 }
 .leaderboard li::before { content: counter(rank) "."; color: var(--muted); text-align: right; }
 .lb-score { font-weight: 700; }
+.lb-empty {
+  margin: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
 .lb-meta { color: var(--muted); font-size: 0.66rem; text-align: right; }
 /* the round just played, so you can see where it landed */
 .leaderboard li.you { background: rgba(255, 178, 77, 0.14); }
@@ -1635,11 +1641,13 @@ function endGame() {
     : Math.round((state.cuts / (state.cuts + state.misses)) * 100);
 
   // The board keeps the round, not just its number, so a score can be read
-  // back later with the accuracy and date that earned it.
-  const saved = saveScore({
+  // back later with the accuracy and date that earned it. A round that
+  // scored nothing has nothing for a board of top scores: a Zen run stopped
+  // the moment it started used to file a 0 there.
+  const saved = state.score > 0 ? saveScore({
     score: state.score, cuts: state.cuts, accuracy, maxCombo: state.maxCombo,
     offTargets: state.offTargets, date: new Date().toISOString(),
-  }, mode);
+  }, mode) : null;
 
   // Check for achievements
   checkAchievements();
@@ -2657,7 +2665,8 @@ function renderLeaderboard(modeName, justSaved) {
       `<span class="lb-meta">${meta.length ? meta.join(" · ") : "—"}</span></li>`;
   }).join("");
   el.leaderboard.innerHTML =
-    `<div class="leaderboard-title">${label} — top scores</div><ol>${rows}</ol>`;
+    `<div class="leaderboard-title">${label} — top scores</div>` +
+    (rows ? `<ol>${rows}</ol>` : `<p class="lb-empty">No scores yet. Land a cut.</p>`);
 }
 
 // Display difficulty indicator: how far the window has closed, from the

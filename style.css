@@ -767,6 +767,12 @@ body {
 }
 .leaderboard li::before { content: counter(rank) "."; color: var(--muted); text-align: right; }
 .lb-score { font-weight: 700; }
+.lb-empty {
+  margin: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
 .lb-meta { color: var(--muted); font-size: 0.66rem; text-align: right; }
 /* the round just played, so you can see where it landed */
 .leaderboard li.you { background: rgba(255, 178, 77, 0.14); }

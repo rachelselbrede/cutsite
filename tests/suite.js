@@ -750,6 +750,21 @@
     eq(getBestScore("classic"), 800, "the best score survives the upgrade");
   });
 
+  test("storage: a round that scored nothing stays off the board, which says so", function () {
+    localStorage.clear();
+    freeze("zen");
+    endGame();
+    eq(loadScores("zen").length, 0, "a Zen run stopped at once must not file a 0");
+    assert(!el.leaderboard.querySelector("li"), "no rows to show");
+    assert(/No scores yet/.test(el.leaderboard.textContent), "an empty board should say so");
+    assert(!/personal best/.test(el.endTitle.textContent), "and nothing scored is not a personal best");
+    const t = freeze("classic");
+    click(cols()[t.start]);
+    endGame();
+    eq(loadScores("classic").length, 1, "a round that scored still goes on the board");
+    eq(el.leaderboard.querySelectorAll("li.you").length, 1, "and is marked as yours");
+  });
+
   test("end card: this round's row is highlighted, with its accuracy and date", function () {
     localStorage.clear();
     saveScore({ score: 99999, cuts: 40, accuracy: 100, date: "2026-01-01T00:00:00.000Z" }, "classic");
