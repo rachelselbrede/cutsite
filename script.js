@@ -287,6 +287,7 @@ const el = {
   cardEnd: document.getElementById("card-end"),
   startBtn: document.getElementById("start-btn"),
   againBtn: document.getElementById("again-btn"),
+  menuBtn: document.getElementById("menu-btn"),
   muteBtn: document.getElementById("mute-btn"),
   stopBtn: document.getElementById("stop-btn"),
   finalScore: document.getElementById("final-score"),
@@ -314,20 +315,24 @@ initializeScissors();
 // Ensure event listeners are attached after DOM is ready
 if (el.startBtn) el.startBtn.addEventListener("click", startGame);
 if (el.againBtn) el.againBtn.addEventListener("click", startGame);
+if (el.menuBtn) el.menuBtn.addEventListener("click", showStartCard);
 if (el.muteBtn) el.muteBtn.addEventListener("click", toggleMute);
 if (el.stopBtn) el.stopBtn.addEventListener("click", endGame);
 if (el.shareBtn) el.shareBtn.addEventListener("click", copyShare);
+restoreMute();
 
-// Mode selection listeners
-document.querySelectorAll(".mode-btn").forEach(btn => {
+// Mode selection: the picker always shows the mode the state holds.
+function selectModeButton(modeName) {
+  document.querySelectorAll(".mode-btn").forEach((b) => {
+    const on = b.dataset.mode === modeName;
+    b.classList.toggle("selected", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
+}
+document.querySelectorAll(".mode-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".mode-btn").forEach(b => {
-      b.classList.remove("selected");
-      b.setAttribute("aria-pressed", "false");
-    });
-    btn.classList.add("selected");
-    btn.setAttribute("aria-pressed", "true");
     state.gameMode = btn.dataset.mode;
+    selectModeButton(state.gameMode);
   });
 });
 
@@ -571,6 +576,19 @@ function endGame() {
   el.cardStart.classList.add("hidden");
   el.cardEnd.classList.remove("hidden");
   el.overlay.classList.remove("hidden");
+}
+
+// Back to the mode picker from the end card, with the mode just played
+// still selected. Until this existed the picker lived only on the start
+// card, which nothing ever showed again, so changing mode after the first
+// round meant reloading the page.
+function showStartCard() {
+  el.cardEnd.classList.add("hidden");
+  el.cardStart.classList.remove("hidden");
+  el.overlay.classList.remove("hidden");
+  selectModeButton(state.gameMode);
+  const selected = document.querySelector(".mode-btn.selected") || el.startBtn;
+  selected.focus({ preventScroll: true });
 }
 
 // ---------- 6. THE TARGET LOOP ----------
@@ -1197,10 +1215,23 @@ function playJam() {
   }
 }
 
-function toggleMute() {
-  state.muted = !state.muted;
+function renderMute() {
   el.muteBtn.textContent = state.muted ? "Sound: off" : "Sound: on";
   el.muteBtn.setAttribute("aria-pressed", String(state.muted));
+}
+
+// The choice is kept, so a player who muted once stays muted next visit.
+function toggleMute() {
+  state.muted = !state.muted;
+  renderMute();
+  try { localStorage.setItem("cutsite-muted", state.muted ? "1" : "0"); }
+  catch (e) { /* private mode: it lasts the visit */ }
+}
+
+function restoreMute() {
+  try { state.muted = localStorage.getItem("cutsite-muted") === "1"; }
+  catch (e) { state.muted = false; }
+  renderMute();
 }
 
 // ---------- 9. HELPERS ----------
@@ -1528,7 +1559,11 @@ function getDifficultyLevel() {
 // the same as the Stop button; timed rounds are left alone, so a stray
 // Escape can never forfeit a Classic run.
 document.addEventListener("keydown", (e) => {
-  if (e.code === "Space" && !state.running && el.cardEnd.classList.contains("hidden") === false) {
+  // A focused button keeps Space for itself: on "Copy result" or "Change
+  // mode" it has to press the button, not restart the round underneath.
+  const onControl = e.target instanceof Element &&
+    e.target.closest("button, a, input, select, textarea, summary") !== null;
+  if (e.code === "Space" && !state.running && !onControl && el.cardEnd.classList.contains("hidden") === false) {
     e.preventDefault();
     startGame();
   }

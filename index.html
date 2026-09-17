@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=21" />
+  <link rel="stylesheet" href="style.css?v=22" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -60,6 +60,9 @@
       <div class="brand">
         <span class="brand-mark">Cas9</span>
         <h1>CutSite</h1>
+        <!-- Out here rather than on a card, so it can be reached before,
+             during and after a round. The choice is remembered. -->
+        <button class="sound-toggle" id="mute-btn" aria-pressed="false">Sound: on</button>
       </div>
       <p class="tagline">Find the fluorescing target. Snip it before the window closes.</p>
     </header>
@@ -155,7 +158,6 @@
             <button class="mode-btn" data-mode="daily" aria-pressed="false">Daily <small>12 targets</small></button>
           </div>
           <button class="btn" id="start-btn">Start editing</button>
-          <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
         </div>
 
         <div class="card hidden" id="card-end">
@@ -179,13 +181,18 @@
             <code id="share-text"></code>
             <button class="btn btn-ghost" id="share-btn" type="button">Copy result</button>
           </div>
-          <button class="btn" id="again-btn">Edit again</button>
+          <!-- Edit again replays the same mode; Change mode brings the picker
+               back, so a session never needs a reload. -->
+          <div class="end-actions">
+            <button class="btn" id="again-btn">Edit again</button>
+            <button class="btn btn-ghost" id="menu-btn">Change mode</button>
+          </div>
         </div>
       </div>
     </section>
 
   </main>
 
-  <script src="script.js?v=21"></script>
+  <script src="script.js?v=22"></script>
 </body>
 </html>

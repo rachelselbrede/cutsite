@@ -953,6 +953,55 @@
   });
 
   // ============================================================
+  // Between rounds
+  // ============================================================
+  test("end card: Change mode brings the mode picker back, with the round's mode still selected", function () {
+    freeze("zen");
+    endGame();
+    assert(el.cardStart.classList.contains("hidden"), "the start card is hidden while the end card shows");
+    el.menuBtn.click();
+    assert(!el.cardStart.classList.contains("hidden"), "Change mode should show the start card");
+    assert(el.cardEnd.classList.contains("hidden"), "and hide the end card");
+    assert(!el.overlay.classList.contains("hidden"), "with the overlay up");
+    eq(state.gameMode, "zen", "the mode just played should stay selected");
+    eq(document.querySelector('.mode-btn[data-mode="zen"]').getAttribute("aria-pressed"), "true", "and its button should read as pressed");
+    assert(document.activeElement && document.activeElement.classList.contains("mode-btn"), "focus should land on the mode picker");
+    document.querySelector('.mode-btn[data-mode="classic"]').click();
+    el.startBtn.click();
+    eq(state.gameMode, "classic", "a different mode should start without a reload");
+    assert(state.running, "and its round should run");
+  });
+
+  test("keyboard: Space on an end-card button presses the button instead of restarting", function () {
+    freeze("classic");
+    endGame();
+    el.againBtn.focus();
+    const ev = new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true, cancelable: true });
+    el.againBtn.dispatchEvent(ev);
+    assert(!ev.defaultPrevented, "the restart shortcut should leave a button's own Space alone");
+    assert(!state.running, "and not restart the round itself");
+    key(" ", "Space");
+    assert(state.running, "Space anywhere else on the end card should still restart");
+  });
+
+  test("sound: the toggle lives outside the overlay and its setting survives a reload", function () {
+    assert(!el.overlay.contains(el.muteBtn), "the sound toggle must not live inside the overlay");
+    localStorage.removeItem("cutsite-muted");
+    state.muted = false; renderMute();
+    toggleMute();
+    eq(state.muted, true, "toggling should mute");
+    eq(localStorage.getItem("cutsite-muted"), "1", "and remember it");
+    eq(el.muteBtn.getAttribute("aria-pressed"), "true", "the button should read as pressed");
+    state.muted = false; renderMute();          // a fresh page load...
+    restoreMute();                              // ...brings the choice back
+    eq(state.muted, true, "the saved choice should come back");
+    assert(/off/.test(el.muteBtn.textContent), "and the button should say so");
+    toggleMute();
+    eq(localStorage.getItem("cutsite-muted"), "0", "toggling back should be remembered too");
+    eq(state.muted, false, "sound is on again");
+  });
+
+  // ============================================================
   // Keyboard play and screen-reader announcements
   // ============================================================
   function key(k, code) {

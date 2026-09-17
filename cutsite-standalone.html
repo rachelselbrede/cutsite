@@ -132,6 +132,27 @@ body {
 
 .topbar { margin-bottom: 20px; }
 .brand { display: flex; align-items: center; gap: 12px; }
+/* The sound toggle sits at the end of the brand row, out of the overlay, so
+   it can be reached before, during and after a round. */
+.sound-toggle {
+  margin-left: auto;
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--panel-line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.sound-toggle:hover { color: var(--ink); border-color: var(--glow-soft); }
+.sound-toggle:focus-visible { outline: 3px solid var(--cas9); outline-offset: 2px; }
+.sound-toggle[aria-pressed="true"] { color: var(--cas9); border-color: rgba(255, 178, 77, 0.5); }
 .brand-mark {
   font-family: "JetBrains Mono", monospace;
   font-weight: 700;
@@ -561,17 +582,22 @@ body {
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: 3px solid var(--cas9); outline-offset: 2px; }
 .btn-ghost {
-  margin-top: 12px;
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--panel-line);
   font-size: 0.82rem;
   padding: 8px 16px;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
 }
 .btn-ghost:hover { box-shadow: none; color: var(--ink); }
+
+/* Edit again and Change mode, side by side under the end card's summary */
+.end-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 
 .scoreline {
   display: flex;
@@ -651,7 +677,7 @@ body {
   letter-spacing: 0.04em;
   color: var(--ink);
 }
-.share .btn-ghost { margin: 0; display: inline-block; padding: 3px 10px; font-size: 0.74rem; }
+.share .btn-ghost { padding: 3px 10px; font-size: 0.74rem; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 560px) {
@@ -925,6 +951,9 @@ body {
       <div class="brand">
         <span class="brand-mark">Cas9</span>
         <h1>CutSite</h1>
+        <!-- Out here rather than on a card, so it can be reached before,
+             during and after a round. The choice is remembered. -->
+        <button class="sound-toggle" id="mute-btn" aria-pressed="false">Sound: on</button>
       </div>
       <p class="tagline">Find the fluorescing target. Snip it before the window closes.</p>
     </header>
@@ -1020,7 +1049,6 @@ body {
             <button class="mode-btn" data-mode="daily" aria-pressed="false">Daily <small>12 targets</small></button>
           </div>
           <button class="btn" id="start-btn">Start editing</button>
-          <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
         </div>
 
         <div class="card hidden" id="card-end">
@@ -1044,7 +1072,12 @@ body {
             <code id="share-text"></code>
             <button class="btn btn-ghost" id="share-btn" type="button">Copy result</button>
           </div>
-          <button class="btn" id="again-btn">Edit again</button>
+          <!-- Edit again replays the same mode; Change mode brings the picker
+               back, so a session never needs a reload. -->
+          <div class="end-actions">
+            <button class="btn" id="again-btn">Edit again</button>
+            <button class="btn btn-ghost" id="menu-btn">Change mode</button>
+          </div>
         </div>
       </div>
     </section>
@@ -1341,6 +1374,7 @@ const el = {
   cardEnd: document.getElementById("card-end"),
   startBtn: document.getElementById("start-btn"),
   againBtn: document.getElementById("again-btn"),
+  menuBtn: document.getElementById("menu-btn"),
   muteBtn: document.getElementById("mute-btn"),
   stopBtn: document.getElementById("stop-btn"),
   finalScore: document.getElementById("final-score"),
@@ -1368,20 +1402,24 @@ initializeScissors();
 // Ensure event listeners are attached after DOM is ready
 if (el.startBtn) el.startBtn.addEventListener("click", startGame);
 if (el.againBtn) el.againBtn.addEventListener("click", startGame);
+if (el.menuBtn) el.menuBtn.addEventListener("click", showStartCard);
 if (el.muteBtn) el.muteBtn.addEventListener("click", toggleMute);
 if (el.stopBtn) el.stopBtn.addEventListener("click", endGame);
 if (el.shareBtn) el.shareBtn.addEventListener("click", copyShare);
+restoreMute();
 
-// Mode selection listeners
-document.querySelectorAll(".mode-btn").forEach(btn => {
+// Mode selection: the picker always shows the mode the state holds.
+function selectModeButton(modeName) {
+  document.querySelectorAll(".mode-btn").forEach((b) => {
+    const on = b.dataset.mode === modeName;
+    b.classList.toggle("selected", on);
+    b.setAttribute("aria-pressed", String(on));
+  });
+}
+document.querySelectorAll(".mode-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".mode-btn").forEach(b => {
-      b.classList.remove("selected");
-      b.setAttribute("aria-pressed", "false");
-    });
-    btn.classList.add("selected");
-    btn.setAttribute("aria-pressed", "true");
     state.gameMode = btn.dataset.mode;
+    selectModeButton(state.gameMode);
   });
 });
 
@@ -1625,6 +1663,19 @@ function endGame() {
   el.cardStart.classList.add("hidden");
   el.cardEnd.classList.remove("hidden");
   el.overlay.classList.remove("hidden");
+}
+
+// Back to the mode picker from the end card, with the mode just played
+// still selected. Until this existed the picker lived only on the start
+// card, which nothing ever showed again, so changing mode after the first
+// round meant reloading the page.
+function showStartCard() {
+  el.cardEnd.classList.add("hidden");
+  el.cardStart.classList.remove("hidden");
+  el.overlay.classList.remove("hidden");
+  selectModeButton(state.gameMode);
+  const selected = document.querySelector(".mode-btn.selected") || el.startBtn;
+  selected.focus({ preventScroll: true });
 }
 
 // ---------- 6. THE TARGET LOOP ----------
@@ -2251,10 +2302,23 @@ function playJam() {
   }
 }
 
-function toggleMute() {
-  state.muted = !state.muted;
+function renderMute() {
   el.muteBtn.textContent = state.muted ? "Sound: off" : "Sound: on";
   el.muteBtn.setAttribute("aria-pressed", String(state.muted));
+}
+
+// The choice is kept, so a player who muted once stays muted next visit.
+function toggleMute() {
+  state.muted = !state.muted;
+  renderMute();
+  try { localStorage.setItem("cutsite-muted", state.muted ? "1" : "0"); }
+  catch (e) { /* private mode: it lasts the visit */ }
+}
+
+function restoreMute() {
+  try { state.muted = localStorage.getItem("cutsite-muted") === "1"; }
+  catch (e) { state.muted = false; }
+  renderMute();
 }
 
 // ---------- 9. HELPERS ----------
@@ -2582,7 +2646,11 @@ function getDifficultyLevel() {
 // the same as the Stop button; timed rounds are left alone, so a stray
 // Escape can never forfeit a Classic run.
 document.addEventListener("keydown", (e) => {
-  if (e.code === "Space" && !state.running && el.cardEnd.classList.contains("hidden") === false) {
+  // A focused button keeps Space for itself: on "Copy result" or "Change
+  // mode" it has to press the button, not restart the round underneath.
+  const onControl = e.target instanceof Element &&
+    e.target.closest("button, a, input, select, textarea, summary") !== null;
+  if (e.code === "Space" && !state.running && !onControl && el.cardEnd.classList.contains("hidden") === false) {
     e.preventDefault();
     startGame();
   }
