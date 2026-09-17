@@ -125,7 +125,7 @@ This game keeps those ideas and simplifies the rest:
 | `og-image.png` | Link-preview card, referenced by the `og:image` meta tag |
 | `docs/screenshot.png` | The screenshot at the top of this README |
 | `tests/` | The test suite and its runner |
-| `.github/workflows/ci.yml` | Runs the tests on every push and pull request |
+| `.github/workflows/ci.yml` | Runs the tests on every push to every branch, and on pull requests from forks |
 
 There is still no build step for playing or deploying the game; `index.html`
 loads the CSS and JS directly. The script exists only to produce the single-file

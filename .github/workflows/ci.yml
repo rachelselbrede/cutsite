@@ -2,12 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
 jobs:
   check:
+    # Every push to every branch runs the suite, so a branch is checked
+    # before anyone opens a pull request for it. A pull request from a
+    # branch in this repository would then run twice, so the pull_request
+    # event is kept for forks, whose pushes cannot run here.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
