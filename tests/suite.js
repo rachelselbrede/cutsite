@@ -736,6 +736,53 @@
   });
 
   // ============================================================
+  // The overlay cards
+  // ============================================================
+  // The start card once grew past the stage as features were described on
+  // it, which put the mode picker and the Start button below the fold with
+  // nothing to say the overlay scrolled. Both cards have to fit the stage as
+  // delivered; the headless window is desktop-sized, so this is the layout a
+  // laptop gets.
+  function showCard(card) {
+    el.overlay.classList.remove("hidden");
+    el.cardStart.classList.toggle("hidden", card !== el.cardStart);
+    el.cardEnd.classList.toggle("hidden", card !== el.cardEnd);
+  }
+  function overlayFits(what) {
+    assert(el.overlay.scrollHeight <= el.overlay.clientHeight,
+           what + " should fit the stage without scrolling: " + el.overlay.scrollHeight +
+           "px of content in a " + el.overlay.clientHeight + "px overlay");
+  }
+
+  test("start card: the rules start folded and Start sits inside the stage", function () {
+    showCard(el.cardStart);
+    const howto = el.cardStart.querySelector("details");
+    assert(howto, "the start card should fold its rules into a details element");
+    assert(!howto.open, "the rules should start folded");
+    overlayFits("the start card");
+    const start = el.startBtn.getBoundingClientRect(), stage = el.stage.getBoundingClientRect();
+    assert(start.top >= stage.top && start.bottom <= stage.bottom, "the Start button should be in view inside the stage");
+    document.querySelectorAll(".mode-btn").forEach(function (b) {
+      const r = b.getBoundingClientRect();
+      assert(r.top >= stage.top && r.bottom <= stage.bottom, "every mode button should be in view: " + b.textContent);
+    });
+  });
+
+  test("end card: fits the stage with a full board and every achievement", function () {
+    localStorage.clear();
+    for (let i = 1; i <= 10; i++) {
+      saveScore({ score: i * 1000, cuts: 10 + i, accuracy: 80 + i, maxCombo: i, offTargets: 10 - i,
+                  date: "2026-09-" + String(i).padStart(2, "0") + "T12:00:00.000Z" }, "classic");
+    }
+    Object.keys(ACHIEVEMENTS).forEach(persistAchievement);
+    freeze("classic");
+    endGame();
+    overlayFits("the end card");
+    const again = el.againBtn.getBoundingClientRect(), stage = el.stage.getBoundingClientRect();
+    assert(again.top >= stage.top && again.bottom <= stage.bottom, "Edit again should be in view inside the stage");
+  });
+
+  // ============================================================
   // The daily challenge
   // ============================================================
   // Play a pinned day's daily far enough to read its first `targets` targets.

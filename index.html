@@ -28,7 +28,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=19" />
+  <link rel="stylesheet" href="style.css?v=20" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -117,33 +117,46 @@
         <div class="card" id="card-start">
           <h2>Ready to edit a genome?</h2>
           <p>
-            A short stretch of DNA will light up next to its <b>PAM</b> site,
-            the signal Cas9 uses to know where to cut. Click the glowing target
-            as fast as you can. Speed and streaks multiply your score.
+            A stretch of DNA lights up beside its <b>PAM</b>, the signal Cas9
+            cuts by. Snip it before the window closes. Cutting anything else is
+            an <b class="warn">off-target</b> edit.
           </p>
-          <p class="card-warn">
-            Cutting anywhere else is an <b>off-target</b> edit: the combo resets and,
-            when Cas9 would have refused the site, the blades jam.
-          </p>
-          <p>
-            <b>Guide RNA</b> mode lights up decoys too. Read the guide and cut only
-            the site that matches it beside a real <b>NGG</b> PAM. Sites face either
-            way: a PAM to the <b>left</b> of a glow marks a bottom-strand site, read
-            right to left.
-          </p>
-          <p class="card-hint">
-            <b>Daily</b>: twelve targets, the same for everyone today. Your first
-            finished run counts; copy the result to compare with your lab.
-          </p>
-          <p class="card-hint">
-            Keyboard works too: arrows move along the strand, J or 1&ndash;3 jump
-            to a glowing site, Enter cuts, Esc ends a Zen or Daily round.
-          </p>
+          <!-- The full rules fold away. Spelled out, they pushed the mode
+               picker and the Start button below the stage's edge, where a
+               first-time visitor could not see them. -->
+          <details class="howto">
+            <summary>How to play</summary>
+            <p>
+              Click the glowing target as fast as you can. Speed and streaks
+              multiply your score, and the reaction window tightens as you land
+              cuts.
+            </p>
+            <p class="card-warn">
+              An <b>off-target</b> cut resets the combo and, when Cas9 would
+              have refused the site, jams the blades for a moment.
+            </p>
+            <p>
+              <b>Guide RNA</b> mode lights up decoys too. Read the guide and cut
+              only the site that matches it beside a real <b>NGG</b> PAM. Sites
+              face either way: a PAM to the <b>left</b> of a glow marks a
+              bottom-strand site, read right to left.
+            </p>
+            <p>
+              <b>Daily</b>: twelve targets under Guide RNA rules, the same for
+              everyone today. Your first finished run counts; copy the result to
+              compare with your lab.
+            </p>
+            <p>
+              Keyboard works too: arrows move along the strand, J or the digits
+              1 to 3 jump to a glowing site, Enter cuts, Esc ends a Zen or Daily
+              round.
+            </p>
+          </details>
           <div class="mode-selector" role="group" aria-label="Game mode">
-            <button class="mode-btn selected" data-mode="classic" aria-pressed="true">Classic (30s)</button>
-            <button class="mode-btn" data-mode="zen" aria-pressed="false">Zen (endless)</button>
-            <button class="mode-btn" data-mode="guide" aria-pressed="false">Guide RNA (45s)</button>
-            <button class="mode-btn" data-mode="daily" aria-pressed="false">Daily (12 targets)</button>
+            <button class="mode-btn selected" data-mode="classic" aria-pressed="true">Classic <small>30 seconds</small></button>
+            <button class="mode-btn" data-mode="zen" aria-pressed="false">Zen <small>endless</small></button>
+            <button class="mode-btn" data-mode="guide" aria-pressed="false">Guide RNA <small>45 seconds</small></button>
+            <button class="mode-btn" data-mode="daily" aria-pressed="false">Daily <small>12 targets</small></button>
           </div>
           <button class="btn" id="start-btn">Start editing</button>
           <button class="btn btn-ghost" id="mute-btn" aria-pressed="false">Sound: on</button>
@@ -177,6 +190,6 @@
 
   </main>
 
-  <script src="script.js?v=19"></script>
+  <script src="script.js?v=20"></script>
 </body>
 </html>

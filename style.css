@@ -548,7 +548,36 @@ body {
   font-size: 0.82rem;
   line-height: 1.4;
 }
-.card-warn b { color: var(--danger); }
+.card-warn b,
+.card b.warn { color: var(--danger); }
+
+/* ---------- the folded rules on the start card ---------- */
+/* Closed by default: the card then fits the stage with room to spare, so the
+   mode picker and Start are always in view. Opening it is the one thing that
+   may make the overlay scroll, and that is the reader's own choice. */
+.howto { margin: 0 0 12px; }
+.howto summary {
+  display: inline-block;
+  cursor: pointer;
+  list-style: none;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--glow);
+  padding: 5px 12px;
+  border: 1px solid var(--panel-line);
+  border-radius: 999px;
+  transition: border-color 0.2s ease;
+}
+.howto summary::-webkit-details-marker { display: none; }
+.howto summary::after { content: " \25BE"; }
+.howto[open] summary::after { content: " \25B4"; }
+.howto summary:hover { border-color: var(--glow-soft); }
+.howto summary:focus-visible { outline: 3px solid var(--cas9); outline-offset: 2px; }
+.howto[open] summary { margin-bottom: 12px; }
+.howto p:last-child { margin-bottom: 0; }
 
 /* ---------- daily share row ---------- */
 /* Sized to the end-note it replaces, so the daily's end card is exactly as
@@ -574,6 +603,7 @@ body {
 @media (max-width: 560px) {
   .hud { grid-template-columns: repeat(2, 1fr); }
   .brand h1 { font-size: 1.55rem; }
+  .card h2 { font-size: 1.15rem; }
   /* The strand is also shorter here (script.js), so each column is wider.
      Extra vertical padding grows the tap target without moving the bases,
      and slimmer side padding hands every spare pixel to the columns. */
@@ -601,25 +631,37 @@ body {
 }
 
 /* ---------- mode selector ---------- */
+/* Two by two rather than a stack of four: half the height, and the round
+   length sits under each name instead of in brackets beside it. */
 .mode-selector {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
-  justify-content: center;
   margin-bottom: 12px;
 }
 .mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
   width: 100%;
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--panel-line);
   border-radius: 8px;
-  padding: 7px 10px;
+  padding: 6px 8px;
   font-family: inherit;
   font-weight: 700;
   font-size: 0.85rem;
+  line-height: 1.2;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+.mode-btn small {
+  font-weight: 500;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  opacity: 0.8;
 }
 .mode-btn:hover {
   color: var(--ink);
@@ -630,6 +672,7 @@ body {
   color: var(--ink);
   border-color: var(--glow);
 }
+.mode-btn:focus-visible { outline: 3px solid var(--cas9); outline-offset: 2px; }
 
 /* ---------- leaderboard ---------- */
 .leaderboard {
@@ -767,7 +810,6 @@ body {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
-.card-hint { font-size: 0.8rem; opacity: 0.85; }
 
 /* ---------- utility classes ---------- */
 /* visually hidden, still read by screen readers */
