@@ -978,6 +978,25 @@
     assert(/Next daily in \S/.test(el.leaderboard.textContent), "and the countdown filled in: " + el.leaderboard.textContent);
   });
 
+  test("daily: the result goes to the share sheet on a touch screen, and copies elsewhere", function () {
+    eq(shareLabel(), "Copy result", "a desktop copies");
+    const realMatchMedia = window.matchMedia;
+    let shared = null;
+    window.matchMedia = function (q) { return { matches: /hover: none/.test(q), media: q }; };
+    Object.defineProperty(navigator, "share", { configurable: true, writable: true,
+      value: function (data) { shared = data; return Promise.resolve(); } });
+    try {
+      eq(shareLabel(), "Share result", "a touch screen with a share sheet shares");
+      el.share.dataset.text = "CutSite Daily #1 \u00b7 12/12 cut";
+      copyShare();
+      assert(shared && /CutSite Daily #1/.test(shared.text), "the sheet gets the result text");
+    } finally {
+      window.matchMedia = realMatchMedia;
+      delete navigator.share;
+    }
+    eq(shareLabel(), "Copy result", "and a desktop copies again");
+  });
+
   test("daily: the countdown reads as hours and minutes to local midnight", function () {
     const ms = msUntilNextDaily();
     assert(ms > 0 && ms <= 86400000, "midnight is within a day: " + ms);

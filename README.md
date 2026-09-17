@@ -26,8 +26,9 @@ no build step. To run it locally, open `index.html` in a browser.
 - **Daily challenge** — twelve targets under Guide RNA rules, the same for
   everyone that day: the date seeds every random draw, and difficulty ramps on
   targets served rather than cuts landed, so a miss never changes what comes
-  next. The first finished run counts. Copy a Wordle-style result line
-  (✂️✂️❌…) to compare with your lab. The end card lists your finished days
+  next. The first finished run counts. Share a Wordle-style result line
+  (✂️✂️❌…) with your lab: the system share sheet on a phone, the clipboard
+  elsewhere. The end card lists your finished days
   with their marks, counts a streak of days finished on the day, and says
   how long until the next one. `?day=YYYY-MM-DD` replays any past day back
   to Daily #1 (a replay is listed but never mends a streak), and a future or
@@ -155,7 +156,7 @@ in a real browser: `tests/run.py` serves the repo, copies `index.html` with
 `tests/suite.js` injected just after `script.js` — so the tests share the
 game's own scope — and reads the results back out of headless Chrome.
 
-Most of the 91 tests guard the biology, because that is the part of this
+Most of the 92 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a

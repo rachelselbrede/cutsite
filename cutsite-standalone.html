@@ -709,6 +709,8 @@ body {
   .col { gap: 10px; padding: 12px 0; }
   .base { font-size: 0.68rem; }
   .stage { --pad-x: 12px; }
+  /* twelve marks and a score on one line at phone width */
+  .share code { font-size: 0.72rem; }
   .helix { padding-left: 14px; padding-right: 14px; }
   /* A wrapped strand still has fifteen columns to a row, so the side
      padding goes to the columns; the 5'/3' marks hang in the stage's own
@@ -1088,8 +1090,8 @@ body {
             </p>
             <p>
               <b>Daily</b>: twelve targets under Guide RNA rules, the same for
-              everyone today. Your first finished run counts; copy the result to
-              compare with your lab.
+              everyone today. Your first finished run counts; share the result
+              with your lab.
             </p>
             <p>
               Keyboard works too: arrows move along the strand, J or the digits
@@ -1414,12 +1416,28 @@ function finishDaily() {
   if (record) {
     el.shareText.textContent = dailyShareLine(record);
     el.share.dataset.text = dailyShareText(record);
+    el.shareBtn.textContent = shareLabel();
     el.share.classList.remove("hidden");
   }
 }
 
+// On a touch screen the result goes to the system share sheet, where the
+// lab's group chat is one tap away; elsewhere, and whenever the sheet is
+// missing or declined, it copies.
+function canShareNatively() {
+  return typeof navigator.share === "function" &&
+    window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+}
+function shareLabel() {
+  return canShareNatively() ? "Share result" : "Copy result";
+}
+
 async function copyShare() {
   const text = el.share.dataset.text || "";
+  if (canShareNatively()) {
+    try { await navigator.share({ text }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
   let ok = false;
   try {
     await navigator.clipboard.writeText(text);
@@ -1437,7 +1455,7 @@ async function copyShare() {
     ta.remove();
   }
   el.shareBtn.textContent = ok ? "Copied" : "Copy failed";
-  setTimeout(() => { el.shareBtn.textContent = "Copy result"; }, 1500);
+  setTimeout(() => { el.shareBtn.textContent = shareLabel(); }, 1500);
 }
 
 // ---------- 2. STATE ----------

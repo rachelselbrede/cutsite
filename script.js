@@ -269,12 +269,28 @@ function finishDaily() {
   if (record) {
     el.shareText.textContent = dailyShareLine(record);
     el.share.dataset.text = dailyShareText(record);
+    el.shareBtn.textContent = shareLabel();
     el.share.classList.remove("hidden");
   }
 }
 
+// On a touch screen the result goes to the system share sheet, where the
+// lab's group chat is one tap away; elsewhere, and whenever the sheet is
+// missing or declined, it copies.
+function canShareNatively() {
+  return typeof navigator.share === "function" &&
+    window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+}
+function shareLabel() {
+  return canShareNatively() ? "Share result" : "Copy result";
+}
+
 async function copyShare() {
   const text = el.share.dataset.text || "";
+  if (canShareNatively()) {
+    try { await navigator.share({ text }); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
   let ok = false;
   try {
     await navigator.clipboard.writeText(text);
@@ -292,7 +308,7 @@ async function copyShare() {
     ta.remove();
   }
   el.shareBtn.textContent = ok ? "Copied" : "Copy failed";
-  setTimeout(() => { el.shareBtn.textContent = "Copy result"; }, 1500);
+  setTimeout(() => { el.shareBtn.textContent = shareLabel(); }, 1500);
 }
 
 // ---------- 2. STATE ----------

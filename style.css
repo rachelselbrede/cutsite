@@ -673,6 +673,8 @@ body {
   .col { gap: 10px; padding: 12px 0; }
   .base { font-size: 0.68rem; }
   .stage { --pad-x: 12px; }
+  /* twelve marks and a score on one line at phone width */
+  .share code { font-size: 0.72rem; }
   .helix { padding-left: 14px; padding-right: 14px; }
   /* A wrapped strand still has fifteen columns to a row, so the side
      padding goes to the columns; the 5'/3' marks hang in the stage's own
