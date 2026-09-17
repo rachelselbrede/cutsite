@@ -114,12 +114,69 @@
     withWidth(1200, function () { eq(strandColumnCount(), CONFIG.strandLength, "desktop width"); });
   });
 
-  test("strand: guide mode keeps room for a decoy on a phone", function () {
-    state.gameMode = "guide";
-    withWidth(375, function () {
-      assert(strandColumnCount() >= 20, "guide mode needs at least 20 columns, got " + strandColumnCount());
+  test("strand: reading modes keep the full strand on a phone and wrap it into two rows", function () {
+    ["guide", "daily"].forEach(function (m) {
+      state.gameMode = m;
+      withWidth(375, function () {
+        eq(strandColumnCount(), CONFIG.strandLength, m + " should keep every column on a phone");
+        assert(strandWraps(), m + " should wrap on a phone");
+        buildStrand();
+        const rows = Array.from(el.strand.querySelectorAll(".row"));
+        eq(rows.length, 2, m + " should draw two rows");
+        rows.forEach(function (r) { eq(r.querySelectorAll(".col").length, 15, "each row should hold half the strand"); });
+        eq(cols().length, CONFIG.strandLength, "every column should still be there");
+        cols().forEach(function (c, i) { eq(Number(c.dataset.index), i, "columns should keep strand order across the wrap"); });
+      });
+      withWidth(1200, function () {
+        assert(!strandWraps(), m + " should not wrap on a desktop");
+        buildStrand();
+        eq(el.strand.querySelectorAll(".row").length, 1, "one row on a desktop");
+      });
     });
     state.gameMode = "classic";
+    withWidth(375, function () {
+      assert(!strandWraps(), "classic keeps its short strand instead of wrapping");
+      buildStrand();
+      eq(el.strand.querySelectorAll(".row").length, 1, "one row of fatter columns");
+    });
+  });
+
+  test("strand: the 5' and 3' marks sit at the true ends of each strand, wrapped or not", function () {
+    const marks = function () {
+      const rows = Array.from(el.strand.querySelectorAll(".row"));
+      const first = rows[0], last = rows[rows.length - 1];
+      const text = function (row, cls) { const s = row.querySelector("." + cls); return s ? s.textContent : ""; };
+      return { rows: rows.length,
+               tl: text(first, "polarity-tl"), tr: text(last, "polarity-tr"),
+               bl: text(first, "polarity-bl"), br: text(last, "polarity-br"),
+               strayTr: text(first, "polarity-tr"), strayBl: text(last, "polarity-bl") };
+    };
+    state.gameMode = "classic";
+    withWidth(1200, function () { buildStrand(); });
+    let m = marks();
+    eq(m.rows, 1, "one row");
+    eq(m.tl + m.tr, "5\u20323\u2032", "the top strand should run 5' to 3' left to right");
+    eq(m.bl + m.br, "3\u20325\u2032", "and the bottom strand the other way");
+    state.gameMode = "guide";
+    withWidth(375, function () { buildStrand(); });
+    m = marks();
+    eq(m.rows, 2, "two rows");
+    eq(m.tl + m.tr, "5\u20323\u2032", "wrapped, the top strand should still start on the first row and end on the last");
+    eq(m.bl + m.br, "3\u20325\u2032", "and so should the bottom strand, the other way");
+    eq(m.strayTr + m.strayBl, "", "the wrap itself is not an end, so it should carry no mark");
+    state.gameMode = "classic";
+  });
+
+  test("guide mode: the two-decoy tier fits on a phone", function () {
+    withWidth(375, function () {
+      freeze("guide", 20);
+      let two = 0;
+      for (let n = 0; n < 60; n++) {
+        if (state.activeTarget.decoys.length === 2) two++;
+        clearTarget(); spawnTarget(); clearTimeout(state.timers.expiry);
+      }
+      assert(two > 0, "a phone's strand should have room for two decoys beside the target");
+    });
   });
 
   // ============================================================

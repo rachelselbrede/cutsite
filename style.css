@@ -224,8 +224,42 @@ body {
 /* ---------- DNA helix ---------- */
 .helix { position: relative; padding: 20px 22px; }
 
-/* DNA is antiparallel, and it matters here: the PAM and the protospacer sit on
-   the top strand, while the guide RNA pairs with the bottom one. */
+/* The strand is one row of base pairs, or two. The reflex modes shorten it
+   on a narrow screen; the reading modes keep all thirty columns and wrap
+   them instead, the way a sequence viewer wraps a long read, so the puzzle
+   is the same on a phone as on a desktop. Every row carries its own pair of
+   backbones, and the row gap leaves room for them and for the PAM label. */
+.strand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  cursor: none;
+}
+.row {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  padding: 0 4px;
+}
+/* the sugar-phosphate backbones, one above and one below every row */
+.row::before,
+.row::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, rgba(51,80,127,0), #33507f, rgba(51,80,127,0));
+  pointer-events: none;
+}
+.row::before { top: -8px; }
+.row::after { bottom: -8px; }
+
+/* DNA is antiparallel, and it matters here: a forward site's PAM and
+   protospacer sit on the top strand and a reverse site's on the bottom one.
+   script.js puts the marks at the true ends of each strand, so on a wrapped
+   strand the first row carries the left pair and the last row the right. */
 .polarity {
   position: absolute;
   font-family: "JetBrains Mono", monospace;
@@ -234,27 +268,11 @@ body {
   color: var(--muted);
   opacity: 0.8;
 }
-.polarity-tl { left: 0;  top: 24px; }
-.polarity-tr { right: 0; top: 24px; }
-.polarity-bl { left: 0;  bottom: 24px; }
-.polarity-br { right: 0; bottom: 24px; }
-.backbone {
-  position: absolute;
-  left: 22px; right: 22px;
-  height: 3px;
-  border-radius: 3px;
-  background: linear-gradient(90deg, rgba(51,80,127,0), #33507f, rgba(51,80,127,0));
-}
-.backbone-top { top: 12px; }
-.backbone-bottom { bottom: 12px; }
+.polarity-tl { right: calc(100% + 4px); top: 4px; }
+.polarity-tr { left: calc(100% + 4px);  top: 4px; }
+.polarity-bl { right: calc(100% + 4px); bottom: 4px; }
+.polarity-br { left: calc(100% + 4px);  bottom: 4px; }
 
-.strand {
-  position: relative;
-  display: flex;
-  gap: 2px;
-  padding: 0 4px;
-  cursor: none;
-}
 .col {
   position: relative;
   flex: 1 1 0;
@@ -611,7 +629,11 @@ body {
   .base { font-size: 0.68rem; }
   .stage { padding-left: 12px; padding-right: 12px; }
   .helix { padding-left: 14px; padding-right: 14px; }
-  .backbone { left: 14px; right: 14px; }
+  /* A wrapped strand still has fifteen columns to a row, so the side
+     padding goes to the columns; the 5'/3' marks hang in the stage's own
+     padding instead. */
+  .helix.wrap { padding-left: 6px; padding-right: 6px; }
+  .helix.wrap .row { padding-left: 0; padding-right: 0; }
 }
 
 /* Touch-only devices: there is no roaming pointer for the scissors to

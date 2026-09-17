@@ -38,8 +38,11 @@ no build step. To run it locally, open `index.html` in a browser.
   lists all six, with locked ones dimmed and showing how to earn them.
 - **Feedback** — screen shake on fast cuts, particle bursts, synthesised sound
   (no audio files), and a live accuracy readout.
-- **Plays on a phone** — the strand shortens on narrow screens so every base pair
-  stays big enough to tap.
+- **Plays on a phone** — in Classic and Zen the strand shortens on narrow
+  screens so every base pair stays big enough to tap. Guide RNA and the Daily
+  keep all thirty base pairs and wrap them into two rows instead, the way a
+  sequence viewer wraps a long read, so the puzzle and its decoys are the same
+  on a phone as on a desktop.
 - **Plays on a keyboard** — Tab to the strand, arrow keys move along it, J or
   1–3 jump straight to a fluorescing site, Enter cuts, Esc ends a Zen round. The
   status line is a live region, so screen readers hear each hit, miss,
@@ -140,7 +143,7 @@ in a real browser: `tests/run.py` serves the repo, copies `index.html` with
 `tests/suite.js` injected just after `script.js` — so the tests share the
 game's own scope — and reads the results back out of headless Chrome.
 
-Most of the 74 tests guard the biology, because that is the part of this
+Most of the 76 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a

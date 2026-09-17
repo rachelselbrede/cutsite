@@ -56,6 +56,9 @@ const CONFIG = {
 // reverseAfter is the cut count from which sites may face the bottom strand.
 // Reflex modes never needed reading, so they show both orientations at once;
 // Guide RNA introduces reverse sites only after the two-decoy tier.
+// fullStrand keeps all thirty columns on any screen, wrapped into two rows
+// where one row cannot show them: the reading modes need the room for their
+// decoys, and the daily needs the same strand for everyone.
 const MODES = {
   classic: { label: "Classic", timed: true, roundSeconds: CONFIG.roundSeconds,
              windowStart: CONFIG.windowStart, windowMin: CONFIG.windowMin,
@@ -65,7 +68,8 @@ const MODES = {
              windowFloor: 400, decoys: () => 0, reverseAfter: 0 },
   guide:   { label: "Guide RNA", timed: true, roundSeconds: 45,
              windowStart: 4000, windowMin: 1800,
-             windowFloor: 1800, decoys: (cuts) => (cuts < 8 ? 1 : 2), reverseAfter: 12 },
+             windowFloor: 1800, decoys: (cuts) => (cuts < 8 ? 1 : 2), reverseAfter: 12,
+             fullStrand: true },
   // The daily: Guide RNA rules over a fixed twelve targets rather than a
   // clock, seeded from the date, ramping on targets served, on the full
   // 30-column strand whatever the screen - so every player's round is the
@@ -73,7 +77,7 @@ const MODES = {
   daily:   { label: "Daily", timed: false, roundSeconds: 0,
              windowStart: 4000, windowMin: 2000, windowFloor: 2000,
              decoys: (served) => (served < 4 ? 1 : 2), reverseAfter: 6,
-             seeded: true, targetCount: 12, rampSpan: 12, rampBySpawned: true, fixedColumns: 30 },
+             seeded: true, targetCount: 12, rampSpan: 12, rampBySpawned: true, fullStrand: true },
 };
 function mode() {
   return MODES[state.gameMode] || MODES.classic;
@@ -277,6 +281,7 @@ const el = {
   accuracyDisplay: document.getElementById("accuracy-display"),
   guideSeq: document.getElementById("guide-seq"),
   guideStrand: document.getElementById("guide-strand"),
+  helix: document.getElementById("helix"),
   overlay: document.getElementById("overlay"),
   cardStart: document.getElementById("card-start"),
   cardEnd: document.getElementById("card-end"),
@@ -357,27 +362,55 @@ window.addEventListener("resize", () => {
 });
 
 // ---------- 4. THE DNA STRAND ----------
-// On narrow screens 30 columns squeeze below a usable finger width, so the
-// strand shortens instead: fewer, fatter base pairs to tap.
-function strandColumnCount() {
-  // The daily is the same puzzle for everyone, so it is the same strand
-  // for everyone: the full width, whatever the screen.
-  if (mode().fixedColumns) return mode().fixedColumns;
+// How many columns a screen can show in one row at a readable, tappable
+// width. On a phone thirty squeeze below a usable finger, so the reflex
+// modes draw fewer, fatter base pairs instead.
+function naturalColumnCount() {
   const w = window.innerWidth;
-  let count = CONFIG.strandLength;
-  if (w < 480) count = 16;
-  else if (w < 720) count = 22;
-  // Guide mode needs room for a decoy beside the real site: two 8-column
-  // windows plus the gap between them, with a little slack so the placement
-  // is not forced into a single arrangement.
-  if (state.gameMode === "guide") count = Math.max(count, 20);
-  return count;
+  if (w < 480) return 16;
+  if (w < 720) return 22;
+  return CONFIG.strandLength;
+}
+
+// The reading modes keep every column whatever the screen. Guide RNA needs
+// the room: three site windows of protospacer plus PAM, kept apart, take 28
+// columns, and on a shorter strand the two-decoy tier quietly never came.
+// The daily is the same puzzle for everyone, so it has to be the same strand.
+function strandColumnCount() {
+  return mode().fullStrand ? CONFIG.strandLength : naturalColumnCount();
+}
+
+// A full strand on a screen that cannot show it in one row wraps into two,
+// the way a sequence viewer wraps a long read.
+function strandWraps() {
+  return strandColumnCount() > naturalColumnCount();
+}
+
+function polarityMark(cls, text) {
+  const s = document.createElement("span");
+  s.className = "polarity " + cls;
+  s.setAttribute("aria-hidden", "true");
+  s.textContent = text;
+  return s;
 }
 
 function buildStrand() {
   el.strand.innerHTML = "";
   const count = strandColumnCount();
+  const rowCount = strandWraps() ? 2 : 1;
+  const perRow = Math.ceil(count / rowCount);
+  el.helix.classList.toggle("wrap", rowCount > 1);
+  const rows = [];
   for (let i = 0; i < count; i++) {
+    if (i % perRow === 0) {
+      // Each row is a run of columns with its own pair of backbones. Rows
+      // are presentational: the listbox's options are the columns.
+      const row = document.createElement("div");
+      row.className = "row";
+      row.setAttribute("role", "presentation");
+      el.strand.appendChild(row);
+      rows.push(row);
+    }
     const top = BASES[Math.floor(rng() * 4)];
     const bottom = COMPLEMENT[top];
 
@@ -390,14 +423,23 @@ function buildStrand() {
       <span class="base base-${top}">${top}</span>
       <span class="rung"></span>
       <span class="base base-${bottom}">${bottom}</span>`;
-    el.strand.appendChild(col);
+    rows[rows.length - 1].appendChild(col);
   }
+  // The strands are antiparallel and the marks say so: the top strand runs
+  // 5' to 3' left to right, the bottom one the other way. They sit at the
+  // true ends, so a wrapped strand's first row takes the left pair and its
+  // last row the right pair; the wrap itself is not an end.
+  rows[0].appendChild(polarityMark("polarity-tl", "5\u2032"));
+  rows[0].appendChild(polarityMark("polarity-bl", "3\u2032"));
+  rows[rows.length - 1].appendChild(polarityMark("polarity-tr", "3\u2032"));
+  rows[rows.length - 1].appendChild(polarityMark("polarity-br", "5\u2032"));
   relabelColumns();
   setCursor(Math.min(state.cursor, count - 1));
 }
 
+// The columns in strand order, across rows.
 function columns() {
-  return Array.from(el.strand.children);
+  return Array.from(el.strand.querySelectorAll(".col"));
 }
 
 // ---------- 5. GAME FLOW ----------
