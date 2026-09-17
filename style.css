@@ -504,6 +504,10 @@ body {
   padding: 14px 12px;
 }
 .card.hidden { display: none; }
+/* The end card takes focus when a round ends. The ring shows only for a
+   keyboard player, in the same amber as every other focus ring here. */
+.card:focus { outline: none; }
+.card:focus-visible { outline: 2px solid var(--cas9); outline-offset: 2px; }
 
 /* The end card is wider than the start card: its achievements and the top
    ten sit side by side, which is what keeps it inside the stage with no

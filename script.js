@@ -576,6 +576,9 @@ function endGame() {
   el.cardStart.classList.add("hidden");
   el.cardEnd.classList.remove("hidden");
   el.overlay.classList.remove("hidden");
+  // Focus used to stay on the strand, under the overlay, so a keyboard
+  // player had to Tab blind and a screen reader heard nothing of the result.
+  el.cardEnd.focus({ preventScroll: true });
 }
 
 // Back to the mode picker from the end card, with the mode just played

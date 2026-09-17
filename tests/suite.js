@@ -986,6 +986,17 @@
   // ============================================================
   // Between rounds
   // ============================================================
+  test("end card: takes focus when the round ends, as a dialog named by its title", function () {
+    freeze("classic");
+    assert(document.activeElement === el.strand, "the strand holds focus during a round");
+    endGame();
+    assert(document.activeElement === el.cardEnd, "the end card should take focus, not leave it on the strand underneath");
+    eq(el.cardEnd.getAttribute("role"), "dialog", "it should be a dialog");
+    eq(el.cardEnd.getAttribute("aria-labelledby"), "end-title", "named by its title");
+    key(" ", "Space");
+    assert(state.running, "Space from the card still restarts");
+  });
+
   test("end card: Change mode brings the mode picker back, with the round's mode still selected", function () {
     freeze("zen");
     endGame();
