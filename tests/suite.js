@@ -927,6 +927,66 @@
     return { strand: strand, sites: sites };
   }
 
+  test("daily: the card lists your days newest first, marks the one just played, and counts the streak", function () {
+    localStorage.clear();
+    const today = todayKey();
+    const day = function (n) { return shiftDay(today, -n); };
+    const rec = function (key, cuts, replay) {
+      const outcomes = []; for (let i = 0; i < 12; i++) outcomes.push(i < cuts ? "hit" : "miss");
+      return { number: dailyNumberFor(key), date: key, score: cuts * 100, cuts: cuts, total: 12,
+               accuracy: Math.round((cuts / 12) * 100), outcomes: outcomes, replay: !!replay };
+    };
+    saveDailyRecord(day(1), rec(day(1), 5));
+    saveDailyRecord(day(2), rec(day(2), 7));
+    saveDailyRecord(day(4), rec(day(4), 12));          // a gap at day 3
+    eq(dailyStreak(today), 2, "yesterday and the day before, with today still to come");
+    saveDailyRecord(today, rec(today, 9));
+    eq(dailyStreak(today), 3, "today joins it");
+    saveDailyRecord(day(3), rec(day(3), 1, true));     // the missed day, replayed later
+    eq(dailyStreak(today), 3, "a replay does not mend the gap");
+    eq(loadDailyHistory().map(function (r) { return r.date; }).join(","),
+       [today, day(1), day(2), day(3), day(4)].join(","), "newest first");
+    state.dailyDate = null;
+    renderDailyHistory();
+    const rows = Array.from(el.leaderboard.querySelectorAll("li"));
+    eq(rows.length, 5, "one row per finished day");
+    assert(rows[0].classList.contains("you"), "today's row is the one just played");
+    assert(rows[3].classList.contains("replay"), "a replayed day is marked as such");
+    eq((rows[0].textContent.match(/\u2702/g) || []).length, 9, "the marks carry the day's cuts");
+    assert(/3-day streak/.test(el.leaderboard.textContent), "the streak is shown: " + el.leaderboard.textContent);
+    assert(/Next daily in/.test(el.leaderboard.textContent), "and the wait for the next");
+    clearInterval(countdownTimer);
+  });
+
+  test("daily: a finished round goes on the day's record, not a top-ten board", function () {
+    localStorage.clear();
+    state.dailyDate = "2026-09-10";
+    freeze("daily");
+    for (let n = 0; n < 12; n++) {
+      if (n) { spawnTarget(); clearTimeout(state.timers.expiry); }
+      click(cols()[state.activeTarget.start]); clearTimeout(state.timers.spawn);
+    }
+    endGame();
+    state.dailyDate = null;
+    clearInterval(countdownTimer);
+    eq(loadScores("daily").length, 0, "no board entry");
+    const rec = loadDailyRecord("2026-09-10");
+    assert(rec && rec.replay, "the day's record instead, marked as a replay since it is not today");
+    assert(/Your dailies/.test(el.leaderboard.textContent), "the card shows the history");
+    assert(/#1/.test(el.leaderboard.textContent), "with the day just played");
+    assert(el.leaderboard.querySelector("li.you"), "highlighted");
+    assert(/Next daily in \S/.test(el.leaderboard.textContent), "and the countdown filled in: " + el.leaderboard.textContent);
+  });
+
+  test("daily: the countdown reads as hours and minutes to local midnight", function () {
+    const ms = msUntilNextDaily();
+    assert(ms > 0 && ms <= 86400000, "midnight is within a day: " + ms);
+    eq(formatCountdown(3 * 3600000 + 5 * 60000), "3h 05m", "hours and minutes");
+    eq(formatCountdown(45 * 60000), "45m", "minutes alone");
+    eq(formatCountdown(20000), "under a minute", "the last moments");
+    eq(msUntilNextDaily(new Date(2026, 8, 17, 12, 0, 0)), 12 * 3600000, "noon is twelve hours from midnight");
+  });
+
   test("daily: a replay must be a real day between Daily #1 and today; anything else means today", function () {
     const today = todayKey();
     const shift = function (days) {

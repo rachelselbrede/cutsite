@@ -192,6 +192,52 @@ function dailyShareText(rec) {
     rec.score.toLocaleString() + " pts\n" + dailyMarks(rec.outcomes) + "\n" + SHARE_URL;
 }
 
+// Every finished daily on record, newest first. Records live one per day
+// under cutsite-daily-<date>, so the history is a walk of the keys.
+function loadDailyHistory() {
+  const out = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || k.indexOf("cutsite-daily-") !== 0) continue;
+      const rec = loadDailyRecord(k.slice("cutsite-daily-".length));
+      if (rec && rec.date) out.push(rec);
+    }
+  } catch (e) { /* private mode: nothing remembered, nothing to list */ }
+  return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+}
+
+function shiftDay(key, days) {
+  const [y, mo, d] = key.split("-").map(Number);
+  const t = new Date(Date.UTC(y, mo - 1, d + days));
+  return t.getUTCFullYear() + "-" + String(t.getUTCMonth() + 1).padStart(2, "0") + "-" + String(t.getUTCDate()).padStart(2, "0");
+}
+
+// Consecutive days finished on the day itself, counted back from today, or
+// from yesterday while today's is still to come. A replay of a past day is
+// on record but does not mend a streak: that day was missed.
+function dailyStreak(today) {
+  const finished = {};
+  loadDailyHistory().forEach((r) => { if (!r.replay) finished[r.date] = true; });
+  let key = today || todayKey();
+  if (!finished[key]) key = shiftDay(key, -1);
+  let streak = 0;
+  while (finished[key]) { streak++; key = shiftDay(key, -1); }
+  return streak;
+}
+
+// The next daily arrives at local midnight.
+function msUntilNextDaily(now) {
+  const d = now ? new Date(now) : new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1) - d;
+}
+function formatCountdown(ms) {
+  if (ms < 60000) return "under a minute";
+  const mins = Math.ceil(ms / 60000);
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return h ? h + "h " + String(m).padStart(2, "0") + "m" : m + "m";
+}
+
 // The daily's first finished run of the day is the one that counts, as in
 // any daily puzzle; later runs are practice. An abandoned run records
 // nothing, so a stray Escape cannot burn the day.
@@ -208,6 +254,7 @@ function finishDaily() {
       number, date: key, score: state.score, cuts: state.cuts, total: m.targetCount,
       accuracy: total ? Math.round((state.cuts / total) * 100) : 0,
       outcomes: state.outcomes.slice(),
+      replay: key !== todayKey(),
     };
     saveDailyRecord(key, record);
     el.endTitle.textContent = "Daily #" + number + " complete";
@@ -490,6 +537,7 @@ function startGame() {
   state.offTargets = 0;
   state.lockedUntil = 0;
   state.paused = null;
+  clearInterval(countdownTimer);
 
   el.score.textContent = "0";
   el.combo.textContent = "\u00d71";
@@ -556,8 +604,9 @@ function endGame() {
   el.stage.style.cursor = "";
   el.stopBtn.classList.add("hidden");
 
-  const mode = state.gameMode;
-  const best = getBestScore(mode);
+  const modeName = state.gameMode;
+  const isDaily = !!mode().targetCount;
+  const best = getBestScore(modeName);
   const isRecord = state.score > best;
 
   const accuracy = state.cuts + state.misses === 0
@@ -567,11 +616,12 @@ function endGame() {
   // The board keeps the round, not just its number, so a score can be read
   // back later with the accuracy and date that earned it. A round that
   // scored nothing has nothing for a board of top scores: a Zen run stopped
-  // the moment it started used to file a 0 there.
-  const saved = state.score > 0 ? saveScore({
+  // the moment it started used to file a 0 there. The daily keeps no board
+  // at all: every day is a different puzzle, so its record is per day.
+  const saved = state.score > 0 && !isDaily ? saveScore({
     score: state.score, cuts: state.cuts, accuracy, maxCombo: state.maxCombo,
     offTargets: state.offTargets, date: new Date().toISOString(),
-  }, mode) : null;
+  }, modeName) : null;
 
   // Check for achievements
   checkAchievements();
@@ -589,15 +639,14 @@ function endGame() {
   );
   renderAchievements(newlyUnlocked);
 
-  // Populate leaderboard for the mode just played
-  renderLeaderboard(mode, saved);
-
   // Normal randomness again whatever comes next, then the daily's verdict:
-  // it retitles the card and swaps the end-note for the share row.
+  // it retitles the card, swaps the end-note for the share row and files
+  // the day's record, which is why the history is drawn after it.
   rng = Math.random;
   el.share.classList.add("hidden");
   el.endNote.classList.remove("hidden");
   finishDaily();
+  if (isDaily) renderDailyHistory(); else renderLeaderboard(modeName, saved);
 
   el.cardStart.classList.add("hidden");
   el.cardEnd.classList.remove("hidden");
@@ -1650,6 +1699,44 @@ function renderLeaderboard(modeName, justSaved) {
   el.leaderboard.innerHTML =
     `<div class="leaderboard-title">${label} — top scores</div>` +
     (rows ? `<ol>${rows}</ol>` : `<p class="lb-empty">No scores yet. Land a cut.</p>`);
+}
+
+// ---------- the daily's history ----------
+// The daily has no top ten: every day is a different puzzle, so a score
+// only means something against that day's. The card lists your days
+// instead, newest first, each with its marks, plus the streak and the wait
+// for the next one.
+const HISTORY_ROWS = 7;
+let countdownTimer = null;
+
+function renderDailyHistory() {
+  const played = dailyDateKey();
+  const rows = loadDailyHistory().slice(0, HISTORY_ROWS).map((r) => {
+    const cls = [r.date === played ? "you" : "", r.replay ? "replay" : ""].filter(Boolean).join(" ");
+    const when = formatEntryDate(r.date + "T12:00:00") + (r.replay ? ", replayed" : "");
+    const title = `${when} \u00b7 ${r.cuts} / ${r.total} cut \u00b7 ${r.accuracy}%`;
+    return `<li${cls ? ` class="${cls}"` : ""} title="${title}">` +
+      `<span class="lb-score">#${r.number}</span>` +
+      `<span class="lb-marks">${dailyMarks(r.outcomes)}</span>` +
+      `<span class="lb-meta">${r.score.toLocaleString()}</span></li>`;
+  }).join("");
+  const streak = dailyStreak(todayKey());
+  el.leaderboard.innerHTML =
+    `<div class="leaderboard-title">Your dailies \u2014 ${streak ? streak + "-day streak" : "no streak yet"}</div>` +
+    (rows ? `<ol class="daily-history">${rows}</ol>`
+          : `<p class="lb-empty">Finish today's twelve and it goes here.</p>`) +
+    `<p class="lb-next"></p>`;
+  tickCountdown();
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(tickCountdown, 30000);
+}
+
+// Ticks while the history is on the card; startGame stops it, and another
+// mode's board replacing the history stops it too.
+function tickCountdown() {
+  const p = el.leaderboard.querySelector(".lb-next");
+  if (!p) { clearInterval(countdownTimer); return; }
+  p.textContent = "Next daily in " + formatCountdown(msUntilNextDaily());
 }
 
 // Display difficulty indicator: how far the window has closed, from the

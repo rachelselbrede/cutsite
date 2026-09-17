@@ -27,14 +27,19 @@ no build step. To run it locally, open `index.html` in a browser.
   everyone that day: the date seeds every random draw, and difficulty ramps on
   targets served rather than cuts landed, so a miss never changes what comes
   next. The first finished run counts. Copy a Wordle-style result line
-  (✂️✂️❌…) to compare with your lab; `?day=YYYY-MM-DD` replays any past day
-  back to Daily #1, and a future or invalid day simply means today.
+  (✂️✂️❌…) to compare with your lab. The end card lists your finished days
+  with their marks, counts a streak of days finished on the day, and says
+  how long until the next one. `?day=YYYY-MM-DD` replays any past day back
+  to Daily #1 (a replay is listed but never mends a streak), and a future or
+  invalid day simply means today.
 - **Off-target penalty** — cutting anything else resets your combo and, when
   Cas9 would have refused the site, jams the blades for a moment, so precision
   beats spraying clicks.
-- **Leaderboards** — top 10 per mode, each with the accuracy and date that
-  earned it, and the round you just played highlighted so you can see where it
-  landed. Kept in browser storage; boards from older versions upgrade in place.
+- **Leaderboards** — top 10 for Classic, Zen and Guide RNA, each with the
+  accuracy and date that earned it, and the round you just played highlighted
+  so you can see where it landed. Kept in browser storage; boards from older
+  versions upgrade in place. The Daily keeps its per-day history instead,
+  since every day is a different puzzle.
 - **Achievements** — six unlockables that persist across sessions. The end card
   lists all six, with locked ones dimmed and showing how to earn them.
 - **Feedback** — screen shake on fast cuts, particle bursts, synthesised sound
@@ -150,7 +155,7 @@ in a real browser: `tests/run.py` serves the repo, copies `index.html` with
 `tests/suite.js` injected just after `script.js` — so the tests share the
 game's own scope — and reads the results back out of headless Chrome.
 
-Most of the 88 tests guard the biology, because that is the part of this
+Most of the 91 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a

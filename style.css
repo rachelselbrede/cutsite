@@ -793,6 +793,20 @@ body {
 .leaderboard li.you { background: rgba(255, 178, 77, 0.14); }
 .leaderboard li.you::before,
 .leaderboard li.you .lb-score { color: var(--cas9); }
+/* The daily's history: one row per finished day, newest first, as number,
+   the twelve marks, then the score. No rank counter: days are not ranked
+   against each other, and the list runs in one column whatever the width. */
+.leaderboard ol.daily-history { grid-template-rows: none; grid-auto-flow: row; }
+.daily-history li { grid-template-columns: auto 1fr auto; }
+.daily-history li::before { content: none; }
+.lb-marks { font-size: 0.68rem; letter-spacing: 0.02em; white-space: nowrap; }
+.daily-history li.replay { opacity: 0.6; }
+.lb-next {
+  margin: 8px 0 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
 /* Two columns of one-line board rows do not fit a phone-width card, so the
    top ten runs as a single column there; the overlay scrolls anyway. This
    sits after the base rule on purpose: same specificity, so order decides. */
