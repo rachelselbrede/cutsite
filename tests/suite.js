@@ -906,6 +906,31 @@
     return { strand: strand, sites: sites };
   }
 
+  test("daily: a replay must be a real day between Daily #1 and today; anything else means today", function () {
+    const today = todayKey();
+    const shift = function (days) {
+      const d = new Date(); d.setDate(d.getDate() + days);
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    };
+    assert(isReplayableDay("2026-09-10"), "Daily #1 can be replayed");
+    assert(isReplayableDay(today), "today can be replayed");
+    assert(!isReplayableDay(shift(1)), "tomorrow cannot be previewed");
+    assert(!isReplayableDay("2026-09-09"), "the day before Daily #1 is not a daily");
+    assert(!isReplayableDay("2026-02-30"), "a date that does not exist is not a daily");
+    assert(!isReplayableDay("2026-13-01"), "nor is a thirteenth month");
+    assert(!isReplayableDay("nonsense"), "nor nonsense");
+    state.dailyDate = null;
+    const url = location.pathname + location.search;
+    try {
+      history.replaceState(null, "", location.pathname + "?day=" + shift(1));
+      eq(dailyDateKey(), today, "a future day in the query should fall back to today");
+      history.replaceState(null, "", location.pathname + "?day=2026-09-10");
+      eq(dailyDateKey(), "2026-09-10", "a past day in the query should be honoured");
+    } finally {
+      history.replaceState(null, "", url);
+    }
+  });
+
   test("daily: the same day gives everyone the same strand and the same targets", function () {
     const a = dailyRun("2026-09-10", 8), b = dailyRun("2026-09-10", 8);
     eq(a.strand, b.strand, "the strand should be identical");
