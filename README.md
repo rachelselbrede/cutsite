@@ -13,7 +13,8 @@ an intact PAM but a mismatch in its seed region, the middle one matches the guid
 perfectly yet has no `NGG` beside it, and only the right one satisfies both.*
 
 Built with plain HTML, CSS, and JavaScript — nothing to install, no dependencies,
-no build step. To run it locally, open `index.html` in a browser.
+no build step, and nothing fetched from anyone else at runtime: the typefaces
+are self-hosted in `fonts/`. To run it locally, open `index.html` in a browser.
 
 ## Modes and features
 
@@ -49,6 +50,12 @@ no build step. To run it locally, open `index.html` in a browser.
   makes it a mistake. Under the tally sits a short account of how Cas9 really
   cuts, so the science is in the game and not only in this README. Folded shut
   by default, because the end card has to fit the stage.
+- **Its own typefaces** — IBM Plex Sans and IBM Plex Mono, served from
+  `fonts/` rather than from Google. The page now fetches nothing from a third
+  party, the offline copy keeps its own lettering instead of falling back to
+  system fonts, and the tests no longer wait on a network round trip to
+  measure a layout. Plex was drawn for technical interfaces, which is roughly
+  what a fluorescence-imaging screen is pretending to be.
 - **Installable** — a web app manifest, maskable icons and a service worker, so
   the game adds to a phone's home screen and opens without a connection. The
   page itself is fetched network-first, so a deploy is never hidden behind the
@@ -130,6 +137,7 @@ This game keeps those ideas and simplifies the rest:
 | `index.html` | Page structure: scoreboard, the DNA stage, and the start / game-over screens |
 | `style.css` | The fluorescence-imaging look, the scissors cursor, and all animations |
 | `script.js` | Game logic: drawing the strand, spawning targets, scoring, and sound |
+| `fonts/` | IBM Plex Sans and IBM Plex Mono, self-hosted as woff2, with their licence |
 | `manifest.webmanifest` | Web app manifest: name, colours and icons for an installed copy |
 | `sw.js` | Service worker: precaches the game so it opens offline |
 | `icon-*.png`, `apple-touch-icon.png` | Home-screen icons. **Generated** — see below |
@@ -143,7 +151,9 @@ This game keeps those ideas and simplifies the rest:
 
 There is still no build step for playing or deploying the game; `index.html`
 loads the CSS and JS directly. The script exists only to produce the single-file
-copy, which is handy for emailing the game or opening it off a USB stick.
+copy, which is handy for emailing the game or opening it off a USB stick. The
+typefaces are base64'd into it, so that copy still looks like the game with
+nothing else beside it.
 
 After editing `index.html`, `style.css`, or `script.js`, regenerate it:
 
@@ -228,3 +238,7 @@ generated single-file copy nor the offline cache can fall behind the sources.
 Made by Rachel Selbrede as a portfolio project. Feedback and pull requests welcome.
 
 Licensed under the [MIT License](LICENSE).
+
+The typefaces are [IBM Plex](https://github.com/IBM/plex), © 2017 IBM Corp.,
+used under the SIL Open Font License 1.1. The licence travels with the files
+in [`fonts/OFL.txt`](fonts/OFL.txt).

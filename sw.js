@@ -25,7 +25,7 @@
    VERSION has to match the ?v= on the tags in index.html.
    tests/check_pwa.py fails the build if it ever drifts.
    ============================================================ */
-const VERSION = "34";
+const VERSION = "35";
 const CACHE = "cutsite-v" + VERSION;
 
 const PRECACHE = [
@@ -38,6 +38,11 @@ const PRECACHE = [
   "./icon-512.png",
   "./icon-maskable-512.png",
   "./apple-touch-icon.png",
+  // Self-hosted now, so they belong in the cache like anything else. An
+  // installed copy opening in system fonts was the old offline story.
+  "./fonts/ibm-plex-sans-var.woff2",
+  "./fonts/ibm-plex-mono-500.woff2",
+  "./fonts/ibm-plex-mono-700.woff2",
 ];
 
 self.addEventListener("install", (event) => {
@@ -63,9 +68,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
 
-  // Only plain GETs of our own files. The web fonts come from another
-  // origin and the browser's own HTTP cache already handles them; caching
-  // opaque cross-origin responses here would just hide their failures.
+  // Only plain GETs of our own files. Nothing the page needs is served
+  // from another origin any more, so anything cross-origin is somebody
+  // else's problem and caching an opaque response would only hide it.
   if (req.method !== "GET") return;
   if (new URL(req.url).origin !== self.location.origin) return;
 

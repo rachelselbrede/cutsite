@@ -3,7 +3,9 @@
 Generate cutsite-standalone.html: the whole game as one file you can email,
 drop on a USB stick, or open straight off disk with no other files beside it.
 The service worker and the manifest are stripped on the way through: neither
-means anything without the rest of the site around it.
+means anything without the rest of the site around it. The typefaces go the
+other way and are inlined as base64, so the file still looks like the game
+with nothing else beside it.
 
 It is a build product. Edit index.html / style.css / script.js and re-run:
 
@@ -17,6 +19,7 @@ features behind the real game (Zen mode, achievements, the leaderboard), which
 is why it is generated now.
 """
 
+import base64
 import pathlib
 import re
 import sys
@@ -45,9 +48,34 @@ def read_asset(name):
     return text.strip("\n")
 
 
+def inline_fonts(css):
+    """Swap each url("fonts/x.woff2") for the font itself, base64'd.
+
+    Without this the single file falls back to system fonts the moment it
+    is away from the rest of the site, which is exactly the situation it
+    exists for. woff2 is already compressed; base64 costs about a third on
+    top, and that is the whole price of the file looking like the game.
+    """
+    seen = {}
+
+    def swap(match):
+        rel = match.group(1)
+        path = ROOT / rel
+        if not path.exists():
+            sys.exit(f"error: style.css references {rel}, which does not exist")
+        if rel not in seen:
+            seen[rel] = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f'url("data:font/woff2;base64,{seen[rel]}")'
+
+    css, n = re.subn(r'url\("(fonts/[^"]+\.woff2)"\)', swap, css)
+    if not n:
+        sys.exit("error: no self-hosted fonts found in style.css. Did the @font-face rules change?")
+    return css
+
+
 def main():
     html = SOURCE.read_text(encoding="utf-8")
-    css = read_asset("style.css")
+    css = inline_fonts(read_asset("style.css"))
     js = read_asset("script.js")
 
     # The cache-busting query strings (style.css?v=6) are meaningless once the

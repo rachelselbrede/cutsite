@@ -39,10 +39,10 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <!-- pwa:head:end -->
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=34" />
+  <!-- The typefaces are self-hosted in fonts/ and declared in style.css,
+       so the page fetches nothing from a third party and an offline copy
+       still looks like itself. -->
+  <link rel="stylesheet" href="style.css?v=35" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -227,7 +227,7 @@
 
   </main>
 
-  <script src="script.js?v=34"></script>
+  <script src="script.js?v=35"></script>
   <!-- pwa:start -->
   <script>
     // Kept here rather than in script.js because two other builds drop it:
