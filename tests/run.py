@@ -58,6 +58,16 @@ def build_page():
     source = (ROOT / "index.html").read_text(encoding="utf-8")
     if "</body>" not in source:
         sys.exit("error: index.html has no </body> to inject the suite before")
+    # Drop the service-worker registration. The suite is served from a copy
+    # of the page under another name, and a worker registered from there
+    # would cache the harness and outlive the run, so the next run would be
+    # testing the last run's build. The manifest link stays: it is inert,
+    # and the suite asserts on it.
+    source, dropped = re.subn(
+        r"[ \t]*<!-- pwa:start -->.*?<!-- pwa:end -->\n", "", source, flags=re.S
+    )
+    if dropped != 1:
+        sys.exit(f"error: expected one pwa block in index.html, found {dropped}")
     page = source.replace(
         "</body>", '  <script src="tests/suite.js"></script>\n</body>', 1
     )

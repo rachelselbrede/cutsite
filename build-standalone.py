@@ -2,6 +2,8 @@
 """
 Generate cutsite-standalone.html: the whole game as one file you can email,
 drop on a USB stick, or open straight off disk with no other files beside it.
+The service worker and the manifest are stripped on the way through: neither
+means anything without the rest of the site around it.
 
 It is a build product. Edit index.html / style.css / script.js and re-run:
 
@@ -68,6 +70,18 @@ def main():
             f"error: expected one stylesheet and one script tag in index.html, "
             f"found {n_css} and {n_js}. Did the markup change?"
         )
+
+    # The progressive-web-app wiring is the one part of the page a single
+    # file cannot carry: there is no sw.js, manifest or icon beside it to
+    # fetch, and a file:// page cannot register a worker anyway. Both
+    # fenced blocks come out whole, comments and all.
+    for fence in ("pwa:head", "pwa"):
+        html, n = re.subn(
+            rf"[ \t]*<!-- {fence}:start -->.*?<!-- {fence}:end -->\n",
+            "", html, flags=re.S,
+        )
+        if n != 1:
+            sys.exit(f"error: expected one {fence} block in index.html, found {n}")
 
     html = html.replace("<!DOCTYPE html>\n", "<!DOCTYPE html>\n" + BANNER, 1)
 

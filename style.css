@@ -540,6 +540,7 @@ body {
 .end-body > * { min-width: 0; }
 .end-body .achievements-earned,
 .end-body .leaderboard { margin: 0; }
+.end-column { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 @media (max-width: 720px) {
   #card-end { width: min(460px, 95%); }
   .end-body { grid-template-columns: 1fr; }
@@ -907,6 +908,108 @@ body {
 .strand.kb:focus .col.cursor {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
+}
+
+/* ---------- the round debrief ---------- */
+/* Folded shut by default. The end card already has to fit inside the stage
+   with a full leaderboard and six achievements, so this cannot claim any
+   height until a player asks for it - and the summary line is what asks. */
+.debrief {
+  margin: 0;
+  border: 1px solid var(--panel-line);
+  border-radius: 10px;
+  background: rgba(7, 13, 26, 0.45);
+  text-align: left;
+}
+.debrief-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 7px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.debrief-summary::-webkit-details-marker { display: none; }
+.debrief-summary::after { content: " \25BE"; font-size: 0.85em; }
+.debrief[open] .debrief-summary::after { content: " \25B4"; }
+.debrief-summary:hover { color: var(--ink); }
+.debrief-summary:focus-visible { outline: 2px solid var(--cas9); outline-offset: 2px; border-radius: 10px; }
+/* The tally is the hook, so it keeps the ink while the label stays muted. */
+.debrief-count-badge {
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+
+.debrief-body {
+  padding: 0 10px 10px;
+  border-top: 1px solid var(--panel-line);
+  /* Deliberately not a scroll region. The stage is built to grow with a
+     card that outgrows it and let the page scroll as one; a box that
+     scrolled inside the card would cut a sentence in half and hide the
+     rest behind a scrollbar nested two deep. Folded, this costs nothing,
+     and opening it is the player asking for the height. */
+}
+.debrief-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.debrief-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  margin-bottom: 9px;
+}
+.debrief-count {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--danger);
+  align-self: baseline;
+}
+.debrief-label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ink);
+  align-self: baseline;
+}
+/* The note sits under the label, in the second column, so a wrapped line
+   stays clear of the count rather than running back under it. The .card
+   prefix is there to outrank .card p, which styles every card paragraph. */
+.card .debrief-note {
+  grid-column: 2;
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.card .debrief-clean {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: var(--glow);
+}
+
+.debrief-science {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--panel-line);
+}
+.debrief-science h4 {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.card .debrief-science p {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 0 0 8px;
+}
+.card .debrief-science p:last-child { margin-bottom: 0; }
+
+@media (max-width: 560px) {
+  .debrief-summary { white-space: normal; }
 }
 
 /* ---------- utility classes ---------- */

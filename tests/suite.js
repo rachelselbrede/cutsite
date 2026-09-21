@@ -1470,6 +1470,141 @@ function runCutSiteSuite() {
   });
 
   // ============================================================
+  // The round debrief, and the app wiring around the page
+  // ============================================================
+  // A column the live target has nothing to do with: not glowing, not a
+  // decoy, not part of any PAM.
+  function plainColumn() {
+    return cols().findIndex(function (c) {
+      return !c.classList.contains("candidate") &&
+             !c.classList.contains("decoy") &&
+             !c.classList.contains("pam");
+    });
+  }
+
+  test("debrief: a stray cut on plain DNA is counted as one", function () {
+    freeze("classic");
+    eq(Object.keys(state.mistakes).length, 0, "a fresh round should have no mistakes");
+    click(cols()[plainColumn()]);
+    eq(state.mistakes.dna, 1, "cutting plain DNA should be recorded as a dna mistake");
+    state.lockedUntil = 0;
+    click(cols()[plainColumn()]);
+    eq(state.mistakes.dna, 2, "the tally should count every one, not just the first");
+  });
+
+  test("debrief: cutting the PAM is told apart from cutting plain DNA", function () {
+    const t = freeze("classic");
+    click(cols()[t.pamStart]);
+    eq(state.mistakes.pam, 1, "a cut inside the PAM should be its own kind");
+    eq(state.mistakes.dna, undefined, "and should not be counted as plain DNA too");
+  });
+
+  test("debrief: cutting with nothing lit is counted as cutting early", function () {
+    freeze("classic");
+    clearTarget();
+    click(cols()[0]);
+    eq(state.mistakes.early, 1, "a cut before any site lit up should be recorded as early");
+  });
+
+  test("debrief: a window that closes is counted, and never touches the share marks", function () {
+    freeze("daily");
+    onExpire();
+    eq(state.mistakes.miss, 1, "an expired window should be recorded as a miss");
+    // The daily's shareable line is built from outcomes, so the debrief has
+    // to tally alongside it rather than inside it.
+    eq(state.outcomes.length, 1, "the expiry should still push exactly one outcome");
+    eq(state.outcomes[0], "miss", "and it should still be the string the share line reads");
+  });
+
+  test("debrief: each decoy kind is counted under its own name", function () {
+    const seen = {};
+    for (let n = 0; n < 80 && Object.keys(seen).length < 3; n++) {
+      freeze("guide", 10);
+      const runs = decoyRuns();
+      if (!runs.length) continue;
+      const run = runs[0];
+      state.lockedUntil = 0;
+      click(cols()[run.start]);
+      eq(state.mistakes[run.kind], 1, "a " + run.kind + " decoy should be tallied as " + run.kind);
+      seen[run.kind] = true;
+    }
+    eq(Object.keys(seen).length, 3, "should have cut all three decoy kinds across the tries");
+  });
+
+  test("debrief: the end card lists what went wrong, with a count and a reason", function () {
+    freeze("classic");
+    state.mistakes = { seed: 2, nopam: 1 };
+    endGame();
+    const items = Array.from(el.debrief.querySelectorAll(".debrief-item"));
+    eq(items.length, 2, "only the two kinds that happened should be listed");
+    const text = el.debrief.textContent;
+    assert(/\u00d72\s*Seed mismatch/.test(text), "the seed row should carry its count");
+    assert(/\u00d71\s*No PAM/.test(text), "the no-PAM row should carry its count");
+    assert(text.indexOf("3 mistakes") !== -1, "the summary should total them");
+    assert(text.indexOf("Tolerated off-target") === -1, "a kind that did not happen should not be listed");
+    items.forEach(function (li) {
+      assert(li.querySelector(".debrief-note").textContent.length > 40, "every row needs its explanation");
+    });
+  });
+
+  test("debrief: the rows come in the order the table sets, not the order they happened", function () {
+    freeze("classic");
+    state.mistakes = { miss: 1, distal: 1, seed: 1 };
+    endGame();
+    const labels = Array.from(el.debrief.querySelectorAll(".debrief-label"))
+      .map(function (n) { return n.textContent; });
+    const expected = DEBRIEF
+      .filter(function (row) { return state.mistakes[row[0]]; })
+      .map(function (row) { return row[1]; });
+    eq(labels.join(" | "), expected.join(" | "), "rows should follow DEBRIEF, most instructive first");
+  });
+
+  test("debrief: a clean round says so and still explains the biology", function () {
+    freeze("classic");
+    state.mistakes = {};
+    endGame();
+    assert(el.debrief.querySelector(".debrief-clean"), "a clean round should be called out");
+    eq(el.debrief.querySelectorAll(".debrief-item").length, 0, "with nothing listed against it");
+    assert(el.debrief.textContent.indexOf("a clean round") !== -1, "the summary should say so too");
+    // The science is the half of this that is not about the round, so it
+    // has to be there whether or not anything went wrong.
+    assert(el.debrief.querySelector(".debrief-science"), "the biology panel should always be present");
+    assert(el.debrief.textContent.indexOf("3 bp upstream") !== -1, "and should state where the cut lands");
+  });
+
+  test("debrief: it starts folded, so it cannot push the end card out of the stage", function () {
+    freeze("classic");
+    state.mistakes = { dna: 4, seed: 3, nopam: 2, distal: 2, pam: 1, early: 1, miss: 5 };
+    endGame();
+    assert(!el.debrief.open, "the fold should start closed");
+    overlayFits("the end card with a full debrief");
+    const again = el.againBtn.getBoundingClientRect(), stage = el.stage.getBoundingClientRect();
+    assert(again.bottom <= stage.bottom, "Edit again should stay inside the stage");
+  });
+
+  test("debrief: a new round clears the last one's tally", function () {
+    freeze("classic");
+    click(cols()[plainColumn()]);
+    assert(state.mistakes.dna > 0, "the round should have a mistake to clear");
+    freeze("classic");
+    eq(Object.keys(state.mistakes).length, 0, "starting a round should wipe the tally");
+  });
+
+  test("pwa: the page links a manifest and an icon iOS will use", function () {
+    const manifest = document.querySelector('link[rel="manifest"]');
+    assert(manifest, "index.html should link a web app manifest");
+    eq(manifest.getAttribute("href"), "manifest.webmanifest", "manifest href");
+    const apple = document.querySelector('link[rel="apple-touch-icon"]');
+    assert(apple, "iOS ignores the manifest icons and needs an apple-touch-icon");
+    eq(apple.getAttribute("href"), "apple-touch-icon.png", "apple-touch-icon href");
+    // The colour the browser paints round an installed window has to match
+    // the page, or the app opens with a seam across the top.
+    const theme = document.querySelector('meta[name="theme-color"]');
+    assert(theme, "an installed app needs a theme colour");
+    eq(theme.getAttribute("content"), "#070d1a", "theme colour should be the page background");
+  });
+
+  // ============================================================
   // report
   // ============================================================
   const passed = results.filter(function (r) { return r.ok; }).length;

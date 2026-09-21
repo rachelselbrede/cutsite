@@ -25,10 +25,24 @@
   <meta property="og:image:alt" content="A strand of DNA with one stretch fluorescing next to its PAM site, and a pair of Cas9 scissors." />
   <meta name="twitter:card" content="summary_large_image" />
 
+  <!-- pwa:head:start -->
+  <!-- Installable to a home screen: the manifest names the app and its
+       icons, and sw.js caches the game so an installed copy still opens
+       with no signal. iOS ignores the manifest's icons and wants its own.
+       All of it points at files beside the page, so the standalone build
+       takes it out; tests keep it, since none of it does anything on load. -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="CutSite" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <!-- pwa:head:end -->
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=33" />
+  <link rel="stylesheet" href="style.css?v=34" />
 </head>
 <body>
   <!-- Scissors cursor that follows the pointer over the play area -->
@@ -182,7 +196,17 @@
                card stays inside the stage; narrow screens stack them. -->
           <div class="end-body">
             <div id="achievements" class="achievements-earned"></div>
-            <div id="leaderboard" class="leaderboard"></div>
+            <!-- The board and the debrief share the right-hand column. Six
+                 achievements are taller than ten scores, so the slack under
+                 the board is where the debrief fits for free; hung under the
+                 whole body instead, it made the card outgrow the stage. -->
+            <div class="end-column">
+              <div id="leaderboard" class="leaderboard"></div>
+              <!-- Why the round went the way it did, and the biology behind
+                   it. Folded shut: the end card has to fit the stage, and
+                   this is for the player who wants to know, not everyone. -->
+              <details id="debrief" class="debrief"></details>
+            </div>
           </div>
           <p id="end-note" class="end-note"></p>
           <!-- The daily's result line, ready to paste to the lab. Takes the
@@ -203,6 +227,19 @@
 
   </main>
 
-  <script src="script.js?v=33"></script>
+  <script src="script.js?v=34"></script>
+  <!-- pwa:start -->
+  <script>
+    // Kept here rather than in script.js because two other builds drop it:
+    // the standalone file has no sw.js beside it to register, and a worker
+    // registered from the test page would cache the harness and outlive
+    // the run. Both strip everything between the pwa markers.
+    if ("serviceWorker" in navigator) {
+      addEventListener("load", function () {
+        navigator.serviceWorker.register("sw.js").catch(function () {});
+      });
+    }
+  </script>
+  <!-- pwa:end -->
 </body>
 </html>
