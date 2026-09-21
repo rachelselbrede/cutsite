@@ -20,11 +20,18 @@ jobs:
         run: |
           node --check script.js
           node --check tests/suite.js
+          node --check sw.js
 
       # cutsite-standalone.html is generated. It silently fell three features
       # behind when it was maintained by hand, so the build refuses to drift.
       - name: Check the standalone build is current
         run: python3 build-standalone.py --check
+
+      # The browser suite cannot check this part: installing an app happens
+      # before any of the game's code runs, and the pieces are spread over
+      # index.html, the manifest and the worker, so they drift silently.
+      - name: Check the app manifest, icons and service worker agree
+        run: python3 tests/check_pwa.py
 
       - name: Show the browser version under test
         run: google-chrome --version

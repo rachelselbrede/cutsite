@@ -30,6 +30,7 @@
   <meta property="og:image:alt" content="A strand of DNA with one stretch fluorescing next to its PAM site, and a pair of Cas9 scissors." />
   <meta name="twitter:card" content="summary_large_image" />
 
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
@@ -576,6 +577,7 @@ body {
 .end-body > * { min-width: 0; }
 .end-body .achievements-earned,
 .end-body .leaderboard { margin: 0; }
+.end-column { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 @media (max-width: 720px) {
   #card-end { width: min(460px, 95%); }
   .end-body { grid-template-columns: 1fr; }
@@ -945,6 +947,108 @@ body {
   outline-offset: 2px;
 }
 
+/* ---------- the round debrief ---------- */
+/* Folded shut by default. The end card already has to fit inside the stage
+   with a full leaderboard and six achievements, so this cannot claim any
+   height until a player asks for it - and the summary line is what asks. */
+.debrief {
+  margin: 0;
+  border: 1px solid var(--panel-line);
+  border-radius: 10px;
+  background: rgba(7, 13, 26, 0.45);
+  text-align: left;
+}
+.debrief-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 7px 10px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.debrief-summary::-webkit-details-marker { display: none; }
+.debrief-summary::after { content: " \25BE"; font-size: 0.85em; }
+.debrief[open] .debrief-summary::after { content: " \25B4"; }
+.debrief-summary:hover { color: var(--ink); }
+.debrief-summary:focus-visible { outline: 2px solid var(--cas9); outline-offset: 2px; border-radius: 10px; }
+/* The tally is the hook, so it keeps the ink while the label stays muted. */
+.debrief-count-badge {
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+
+.debrief-body {
+  padding: 0 10px 10px;
+  border-top: 1px solid var(--panel-line);
+  /* Deliberately not a scroll region. The stage is built to grow with a
+     card that outgrows it and let the page scroll as one; a box that
+     scrolled inside the card would cut a sentence in half and hide the
+     rest behind a scrollbar nested two deep. Folded, this costs nothing,
+     and opening it is the player asking for the height. */
+}
+.debrief-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.debrief-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  margin-bottom: 9px;
+}
+.debrief-count {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--danger);
+  align-self: baseline;
+}
+.debrief-label {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ink);
+  align-self: baseline;
+}
+/* The note sits under the label, in the second column, so a wrapped line
+   stays clear of the count rather than running back under it. The .card
+   prefix is there to outrank .card p, which styles every card paragraph. */
+.card .debrief-note {
+  grid-column: 2;
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.card .debrief-clean {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: var(--glow);
+}
+
+.debrief-science {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--panel-line);
+}
+.debrief-science h4 {
+  margin: 0 0 6px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+.card .debrief-science p {
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: 0 0 8px;
+}
+.card .debrief-science p:last-child { margin-bottom: 0; }
+
+@media (max-width: 560px) {
+  .debrief-summary { white-space: normal; }
+}
+
 /* ---------- utility classes ---------- */
 /* visually hidden, still read by screen readers */
 .sr-only {
@@ -1123,7 +1227,17 @@ body {
                card stays inside the stage; narrow screens stack them. -->
           <div class="end-body">
             <div id="achievements" class="achievements-earned"></div>
-            <div id="leaderboard" class="leaderboard"></div>
+            <!-- The board and the debrief share the right-hand column. Six
+                 achievements are taller than ten scores, so the slack under
+                 the board is where the debrief fits for free; hung under the
+                 whole body instead, it made the card outgrow the stage. -->
+            <div class="end-column">
+              <div id="leaderboard" class="leaderboard"></div>
+              <!-- Why the round went the way it did, and the biology behind
+                   it. Folded shut: the end card has to fit the stage, and
+                   this is for the player who wants to know, not everyone. -->
+              <details id="debrief" class="debrief"></details>
+            </div>
           </div>
           <p id="end-note" class="end-note"></p>
           <!-- The daily's result line, ready to paste to the lab. Takes the
@@ -1241,6 +1355,36 @@ const DECOY_MESSAGES = {
   seed: "Seed mismatch beside the PAM. The guide can't pair there.",
   distal: "Cas9 cut it anyway. A mismatch that far from the PAM is tolerated.",
 };
+
+// The same mistakes, told after the round instead of during it. A status
+// line lasts a second and a player mid-combo does not read it; the end card
+// is where there is time to learn why a cut failed. Counted per round and
+// listed most instructive first, so the tally says what to practise.
+const DEBRIEF = [
+  ["distal", "Tolerated off-target",
+   "A mismatch far from the PAM. Cas9 cuts these anyway, which is why they " +
+   "are the off-target problem: the enzyme does not refuse, so nothing on " +
+   "screen warns you. Only reading the far end of the guide catches them."],
+  ["seed", "Seed mismatch",
+   "A wrong base among the few nearest the PAM. The guide cannot pair there, " +
+   "so Cas9 lets go. Check the bases beside the PAM first: that is where a " +
+   "mismatch actually costs the enzyme its grip."],
+  ["nopam", "No PAM",
+   "A perfect sequence match with no NGG beside it. Without a PAM Cas9 never " +
+   "unwinds the DNA to compare it, so the match is irrelevant. Find the PAM " +
+   "before you read the sequence."],
+  ["pam", "Cut inside the PAM",
+   "The PAM is the signal Cas9 reads, not the thing it cuts. The break lands " +
+   "3 bp upstream of it, at the dashed line."],
+  ["dna", "Cut plain DNA",
+   "No glow, no PAM, no guide match. Nothing about that site would recruit " +
+   "Cas9 at all."],
+  ["early", "Cut before a site lit up",
+   "The blades went in while Cas9 was still scanning. Wait for the glow."],
+  ["miss", "Window closed",
+   "The right site, and no cut in time. Speed is the other half of a good " +
+   "edit: a slow one is a site that got away."],
+];
 
 // DNA base pairing. Cas9 needs a PAM immediately 3' of the protospacer.
 // For S. pyogenes Cas9 that motif is NGG: any base, then two Gs. The N is
@@ -1479,6 +1623,7 @@ const state = {
   cursor: 0,            // column the keyboard is pointing at
   spawned: 0,           // targets served this round
   outcomes: [],         // one of "hit" | "miss" | "tolerated" per resolved target
+  mistakes: {},         // how many of each DEBRIEF kind this round, for the end card
   dailyDate: null,      // pins a day for the daily (tests, replays); null means today
   spawnDue: 0,          // performance.now() the pending spawn is due, 0 if none
   paused: null,         // { at, targetLeft, spawnIn } while the tab is hidden mid-round
@@ -1526,6 +1671,7 @@ const el = {
   leaderboard: document.getElementById("leaderboard"),
   endTitle: document.getElementById("end-title"),
   endNote: document.getElementById("end-note"),
+  debrief: document.getElementById("debrief"),
   scissors: document.getElementById("scissors"),
   stage: document.getElementById("stage"),
 };
@@ -1684,6 +1830,7 @@ function startGame() {
   rng = m.seeded ? mulberry32(hashSeed("cutsite-daily-" + dailyDateKey())) : Math.random;
   state.spawned = 0;
   state.outcomes = [];
+  state.mistakes = {};
   buildStrand();
 
   state.running = true;
@@ -1801,6 +1948,7 @@ function endGame() {
     (id) => !state.previouslyUnlocked.includes(id)
   );
   renderAchievements(newlyUnlocked);
+  renderDebrief();
 
   // Normal randomness again whatever comes next, then the daily's verdict:
   // it retitles the card, swaps the end-note for the share row and files
@@ -2110,6 +2258,7 @@ function resumeRound() {
 function onExpire() {
   if (!state.activeTarget) return;
   clearTarget();
+  noteMistake("miss");
   state.outcomes.push("miss");
   state.combo = 1;
   el.combo.textContent = "\u00d71";
@@ -2158,7 +2307,7 @@ function attemptCut(col) {
 
   if (!state.activeTarget) {
     // No guide match yet, so there is nothing legitimate to cut here.
-    registerOffTarget(col, "Cut before the guide matched. Blades jammed.");
+    registerOffTarget(col, "Cut before the guide matched. Blades jammed.", "early");
     return;
   }
 
@@ -2167,11 +2316,11 @@ function attemptCut(col) {
   } else if (col.dataset.decoy === "distal") {
     registerTolerated(col);
   } else if (col.classList.contains("decoy")) {
-    registerOffTarget(col, DECOY_MESSAGES[col.dataset.decoy]);
+    registerOffTarget(col, DECOY_MESSAGES[col.dataset.decoy], col.dataset.decoy);
   } else if (isTargetPam(col)) {
-    registerOffTarget(col, "That's the PAM. Cas9 cuts 3 bp upstream of it, never inside.");
+    registerOffTarget(col, "That's the PAM. Cas9 cuts 3 bp upstream of it, never inside.", "pam");
   } else {
-    registerOffTarget(col, "Off-target cut. Combo lost, blades jammed.");
+    registerOffTarget(col, "Off-target cut. Combo lost, blades jammed.", "dna");
   }
 }
 
@@ -2307,7 +2456,8 @@ function handleStrandKey(e) {
 // charges for it: the combo resets, accuracy drops, and the blades jam for
 // a moment. That jam is what makes spraying clicks across the strand a
 // losing strategy rather than a free way to catch every target instantly.
-function registerOffTarget(col, message) {
+function registerOffTarget(col, message, kind) {
+  noteMistake(kind);
   state.misses++;
   state.offTargets++;
   state.combo = 1;
@@ -2340,6 +2490,7 @@ function registerTolerated(col) {
   const index = Number(col.dataset.index);
   const run = t.decoys.find((d) => index >= d.start && index <= d.end);
 
+  noteMistake("distal");
   state.misses++;
   state.offTargets++;
   state.combo = 1;
@@ -2664,6 +2815,70 @@ function updateAccuracyDisplay() {
     const acc = Math.round((state.cuts / total) * 100);
     el.accuracyDisplay.textContent = `Accuracy: ${acc}%`;
   }
+}
+
+// ---------- the round debrief ----------
+// Every off-target cut and every expired window is tallied by kind, so the
+// end card can say which mistake a player keeps making rather than only
+// how many they made. The count is the hook; the note is the point.
+function noteMistake(kind) {
+  if (!kind) return;
+  state.mistakes[kind] = (state.mistakes[kind] || 0) + 1;
+}
+
+// The science the game is built on, for the player who wants to know why
+// any of it works that way. It lives under the tally because the tally is
+// what earns the question.
+const DEBRIEF_SCIENCE = [
+  "A guide RNA carries a spacer that matches one spot in the genome. Cas9 " +
+  "will only cut beside a short signal called a PAM - for the common " +
+  "S. pyogenes enzyme, NGG - and the break lands 3 bp upstream of it, " +
+  "blunt, through both strands. That is the dashed amber line.",
+  "A site fails for two honest reasons. With no NGG, Cas9 never unwinds the " +
+  "DNA to read it, so a perfect match counts for nothing. With a mismatch " +
+  "in the seed - the bases nearest the PAM - the guide cannot pair and the " +
+  "enzyme lets go.",
+  "The third case is the one that matters in a lab. A single mismatch far " +
+  "from the PAM is tolerated: Cas9 cuts it anyway. The enzyme will not " +
+  "protect you from a badly designed guide, so the design has to.",
+  "Half of real targets sit on the reverse strand. Those read right to left, " +
+  "with the PAM on their left, where the top strand shows it as CCN.",
+];
+
+function renderDebrief() {
+  if (!el.debrief) return;
+
+  const rows = DEBRIEF.filter(([kind]) => state.mistakes[kind] > 0);
+  const total = rows.reduce((n, [kind]) => n + state.mistakes[kind], 0);
+
+  const tally = rows.map(([kind, label, note]) =>
+    '<li class="debrief-item">' +
+      '<span class="debrief-count">\u00d7' + state.mistakes[kind] + '</span>' +
+      '<span class="debrief-label">' + label + '</span>' +
+      '<p class="debrief-note">' + note + '</p>' +
+    '</li>').join("");
+
+  // A clean round still gets the panel: there is nothing to correct, so the
+  // biology is the whole of it.
+  const body = rows.length
+    ? '<ul class="debrief-list">' + tally + '</ul>'
+    : '<p class="debrief-clean">Nothing went wrong this round. Every cut ' +
+      'landed on a site Cas9 would really have cut.</p>';
+
+  const science = DEBRIEF_SCIENCE.map((para) => "<p>" + para + "</p>").join("");
+
+  const count = total === 0
+    ? "a clean round"
+    : total + (total === 1 ? " mistake" : " mistakes");
+
+  el.debrief.innerHTML =
+    '<summary class="debrief-summary">' +
+      '<span aria-hidden="true">\u{1F52C}</span> Round debrief ' +
+      '<span class="debrief-count-badge">' + count + '</span>' +
+    '</summary>' +
+    '<div class="debrief-body">' + body +
+      '<div class="debrief-science"><h4>Why those are the rules</h4>' + science + '</div>' +
+    '</div>';
 }
 
 // ---------- achievements ----------

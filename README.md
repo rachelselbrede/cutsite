@@ -43,6 +43,16 @@ no build step. To run it locally, open `index.html` in a browser.
   since every day is a different puzzle.
 - **Achievements** — six unlockables that persist across sessions. The end card
   lists all six, with locked ones dimmed and showing how to earn them.
+- **Round debrief** — the end card tallies every mistake by kind and says what
+  each one means: how many tolerated off-targets, seed mismatches, no-PAM cuts,
+  cuts inside the PAM and windows you let close, each with the biology that
+  makes it a mistake. Under the tally sits a short account of how Cas9 really
+  cuts, so the science is in the game and not only in this README. Folded shut
+  by default, because the end card has to fit the stage.
+- **Installable** — a web app manifest, maskable icons and a service worker, so
+  the game adds to a phone's home screen and opens without a connection. The
+  page itself is fetched network-first, so a deploy is never hidden behind the
+  cache; everything else carries its version in the URL and is served from it.
 - **Feedback** — screen shake on fast cuts, particle bursts, synthesised sound
   (no audio files), and a live accuracy readout. The sound toggle in the header
   remembers your choice.
@@ -120,11 +130,15 @@ This game keeps those ideas and simplifies the rest:
 | `index.html` | Page structure: scoreboard, the DNA stage, and the start / game-over screens |
 | `style.css` | The fluorescence-imaging look, the scissors cursor, and all animations |
 | `script.js` | Game logic: drawing the strand, spawning targets, scoring, and sound |
+| `manifest.webmanifest` | Web app manifest: name, colours and icons for an installed copy |
+| `sw.js` | Service worker: precaches the game so it opens offline |
+| `icon-*.png`, `apple-touch-icon.png` | Home-screen icons. **Generated** — see below |
+| `build-icons.py` | Draws those icons from the same scissors mark as the favicon |
 | `cutsite-standalone.html` | The whole game as one file. **Generated** — see below |
 | `build-standalone.py` | Builds the standalone file from the three above |
 | `og-image.png` | Link-preview card, referenced by the `og:image` meta tag |
 | `docs/screenshot.png` | The screenshot at the top of this README |
-| `tests/` | The test suite and its runner |
+| `tests/` | The test suite, its runner, and the app-wiring check |
 | `.github/workflows/ci.yml` | Runs the tests on every push to every branch, and on pull requests from forks |
 
 There is still no build step for playing or deploying the game; `index.html`
@@ -139,7 +153,26 @@ python3 build-standalone.py
 
 `python3 build-standalone.py --check` verifies the committed copy is current
 without writing anything, and exits non-zero if it has fallen behind. Do not
-edit `cutsite-standalone.html` by hand — the next build overwrites it.
+edit `cutsite-standalone.html` by hand — the next build overwrites it. The
+manifest, the icons and the service-worker registration are stripped on the
+way through: none of them means anything to a page with no files beside it.
+
+The icons are generated too, from the same coordinates as the inline SVG
+favicon so the mark cannot drift between them:
+
+```
+python3 build-icons.py
+```
+
+That one needs Pillow, which is why it is run by hand rather than in CI —
+the game itself still has no dependencies, and nothing else here needs one.
+`tests/check_pwa.py` re-checks the committed PNGs with the standard library
+alone, so CI still catches an icon that went missing or changed size.
+
+When `style.css` or `script.js` changes in a way worth busting the cache for,
+bump the `?v=` on both tags in `index.html` **and** `VERSION` in `sw.js`.
+`tests/check_pwa.py` fails if they disagree: a worker still precaching the old
+version would serve returning players the old game with no way to notice.
 
 The JavaScript is organised into clear sections (config, state, the DNA strand,
 the target loop, scoring, sound, helpers) and is commented throughout, so it is
@@ -158,7 +191,7 @@ game's own scope — and reads the results back out of headless Chrome. It
 waits for the web fonts before it starts, so the few tests that measure
 layout see what a player sees.
 
-Most of the 93 tests guard the biology, because that is the part of this
+Most of the 104 tests guard the biology, because that is the part of this
 project that is easy to break by accident and hard to notice: the PAM is
 always `NGG`, the cut always lands 3 bp upstream of it, the guide always
 matches the protospacer it labels, no-PAM decoys never accidentally acquire a
@@ -169,8 +202,21 @@ That last one earned its place immediately: it failed on the suite's first run
 and exposed a live bug in which every seed decoy leaked one base back into the
 strand, dragging the sequence toward poly-G and poly-T over a long session.
 
-`python3 build-standalone.py --check` runs in CI too, so the generated
-single-file copy cannot fall behind the sources again.
+One thing the browser suite cannot reach is the app wiring: a browser decides
+whether a site is installable before any of the game's code runs, and the
+pieces are spread over `index.html`, the manifest and the worker, so they drift
+without anything failing. That has its own check:
+
+```
+python3 tests/check_pwa.py
+```
+
+It reads the manifest, measures each icon straight out of its PNG header,
+and refuses a service worker whose version or precache list has fallen out of
+step with the tags in `index.html`.
+
+Both it and `python3 build-standalone.py --check` run in CI, so neither the
+generated single-file copy nor the offline cache can fall behind the sources.
 
 ## Ideas for next versions
 
